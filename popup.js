@@ -22,17 +22,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   const updateToggleAllButton = () => {
-    toggleAllBtn.textContent = isAllMuted ? "全部取消靜音" : "全部靜音";
+    const buttonText = isAllMuted ? "全部取消靜音" : "全部靜音";
+    const buttonSpan = toggleAllBtn.querySelector('span:not(.button-icon)');
+    buttonSpan.textContent = buttonText;
     toggleAllBtn.classList.toggle("muted", isAllMuted);
     toggleAllBtn.classList.toggle("unmuted", !isAllMuted);
+    toggleAllBtn.classList.toggle("neutral", false);
+    const iconSpan = toggleAllBtn.querySelector('.button-icon');
+    iconSpan.textContent = isAllMuted ? "🔇" : "🔊";
   };
 
   const updateCurrentMuteButton = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const isMuted = tab?.mutedInfo?.muted;
-    toggleCurrentBtn.textContent = isMuted ? "🔇 當前已靜音" : "🔊 當前開聲音";
+    const buttonText = isMuted ? "當前取消靜音" : "當前靜音";
+    const buttonSpan = toggleCurrentBtn.querySelector('span:not(.button-icon)');
+    buttonSpan.textContent = buttonText;
     toggleCurrentBtn.classList.toggle("muted", isMuted);
     toggleCurrentBtn.classList.toggle("unmuted", !isMuted);
+    toggleCurrentBtn.classList.toggle("neutral", false);
+    const iconSpan = toggleCurrentBtn.querySelector('.button-icon');
+    iconSpan.textContent = isMuted ? "🔇" : "▶️";
   };
 
   const updateSelectedInfo = () => {

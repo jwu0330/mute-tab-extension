@@ -11,29 +11,52 @@
       background-color: #f0f0f0;
     }
     h2 {
-      margin-bottom: 10px;
+      margin-bottom: 15px;
       font-size: 18px;
+      color: #333;
     }
     .button-group {
       display: flex;
-      justify-content: space-between;
-      gap: 5px;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 15px;
     }
     .button-group button {
-      flex: 1;
-      padding: 8px;
-      font-size: 13px;
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
       border: none;
-      border-radius: 5px;
+      border-radius: 6px;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .button-group button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .button-group button:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     button.muted {
-      background-color: #ff6666;
+      background-color: #ff6b6b;
       color: white;
     }
     button.unmuted {
-      background-color: #66cc66;
+      background-color: #4CAF50;
       color: white;
+    }
+    button.neutral {
+      background-color: #2196F3;
+      color: white;
+    }
+    .button-icon {
+      margin-right: 8px;
+      font-size: 16px;
     }
     select {
       padding: 8px;
@@ -57,9 +80,18 @@
   <h2>分頁靜音控制器</h2>
 
   <div class="button-group">
-    <button id="toggleAll" class="unmuted">全部靜音</button>
-    <button id="toggleSelected">選擇靜音</button>
-    <button id="toggleCurrent">當前靜音</button>
+    <button id="toggleAll" class="neutral">
+      <span class="button-icon">🔊</span>
+      <span>全部靜音</span>
+    </button>
+    <button id="toggleSelected" class="neutral">
+      <span class="button-icon">🎵</span>
+      <span>選擇靜音</span>
+    </button>
+    <button id="toggleCurrent" class="neutral">
+      <span class="button-icon">▶️</span>
+      <span>當前靜音</span>
+    </button>
   </div>
 
   <label for="tabSelect">選擇分頁：</label>
