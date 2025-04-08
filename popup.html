@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>分頁靜音控制器</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 15px;
+      min-width: 350px;
+      background-color: #f0f0f0;
+    }
+    h2 {
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      gap: 5px;
+    }
+    .button-group button {
+      flex: 1;
+      padding: 8px;
+      font-size: 13px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button.muted {
+      background-color: #ff6666;
+      color: white;
+    }
+    button.unmuted {
+      background-color: #66cc66;
+      color: white;
+    }
+    select {
+      padding: 8px;
+      width: 100%;
+      font-size: 14px;
+      margin: 10px 0 5px;
+      /* display: none; 將多餘資訊區隱藏 */
+    }
+    .tab-info {
+      font-size: 13px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .error {
+      color: red;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h2>分頁靜音控制器</h2>
+
+  <div class="button-group">
+    <button id="toggleAll" class="unmuted">全部靜音</button>
+    <button id="toggleSelected">選擇靜音</button>
+    <button id="toggleCurrent">當前靜音</button>
+  </div>
+
+  <label for="tabSelect">選擇分頁：</label>
+  <select id="tabSelect"></select>
+
+  <div id="selectedTabInfo" class="tab-info"></div>
+
+  <p id="errorMsg" class="error"></p>
+
+  <script src="popup.js"></script>
+</body>
+</html>
