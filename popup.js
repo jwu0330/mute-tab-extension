@@ -38,6 +38,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       else mutedTabIds.delete(tab.id);
     }
     chrome.storage.local.set({ isAllMuted, mutedTabIds: Array.from(mutedTabIds) });
+    await renderDropdownList();
+    await updateCurrentMuteButton();
   });
   // const updateToggleAllButton = () => {
   //   const buttonText = isAllMuted ? "全部取消靜音" : "全部靜音";
@@ -122,6 +124,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   toggleSelectedBtn.addEventListener("click", async () => {
       if (!selectedTabId) return;
+          // —— 如果还在全域静音模式，先把全域关掉 —— 
+      if (isAllMuted) {
+        isAllMuted = false;
+        globalMuteToggle.checked = false;
+        // 只保存当前 mutedTabIds，让 background 以后只管这些
+        chrome.storage.local.set({ isAllMuted, mutedTabIds: Array.from(mutedTabIds) });
+      }
       const tab = await chrome.tabs.get(selectedTabId);
       const newMuted = !tab.mutedInfo?.muted;
       await chrome.tabs.update(selectedTabId, { muted: newMuted });
