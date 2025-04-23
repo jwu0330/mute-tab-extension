@@ -67,6 +67,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       option.value = tab.id;
       // 顯示前 40 字做簡化
       option.textContent = `[${icon}] ${tab.title.slice(0, 40)}`;
+      // 2. 背景圖：favicon
+      if (tab.favIconUrl) {
+        option.style.backgroundImage = `url(${tab.favIconUrl})`;
+      }
       tabSelect.appendChild(option);
     });
 
