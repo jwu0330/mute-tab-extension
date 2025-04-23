@@ -4,7 +4,7 @@ let mutedTabIds = new Set();
 let isAllMuted = false;
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const toggleAllBtn = document.getElementById("toggleAll");
+  const globalMuteToggle = document.getElementById("globalMuteToggle");
   const toggleSelectedBtn = document.getElementById("toggleSelected");
   const toggleCurrentBtn = document.getElementById("toggleCurrent");
   // const tabSelect = document.getElementById("tabSelect");
@@ -22,22 +22,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     mutedTabIds = new Set(storage.mutedTabIds || []);
     isAllMuted = storage.isAllMuted || false;
 
-    updateToggleAllButton();
+    globalMuteToggle.checked = isAllMuted;
     // await updateTabList();
     await renderDropdownList();
     await updateCurrentMuteButton();
   };
 
-  const updateToggleAllButton = () => {
-    const buttonText = isAllMuted ? "全部取消靜音" : "全部靜音";
-    const buttonSpan = toggleAllBtn.querySelector('span:not(.button-icon)');
-    buttonSpan.textContent = buttonText;
-    toggleAllBtn.classList.toggle("muted", isAllMuted);
-    toggleAllBtn.classList.toggle("unmuted", !isAllMuted);
-    toggleAllBtn.classList.toggle("neutral", false);
-    const iconSpan = toggleAllBtn.querySelector('.button-icon');
-    iconSpan.textContent = isAllMuted ? "🔇" : "🔊";
-  };
+  // 全域靜音開關事件
+  globalMuteToggle.addEventListener("change", async () => {
+    isAllMuted = globalMuteToggle.checked;
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      await chrome.tabs.update(tab.id, { muted: isAllMuted });
+      if (isAllMuted) mutedTabIds.add(tab.id);
+      else mutedTabIds.delete(tab.id);
+    }
+    chrome.storage.local.set({ isAllMuted, mutedTabIds: Array.from(mutedTabIds) });
+  });
+  // const updateToggleAllButton = () => {
+  //   const buttonText = isAllMuted ? "全部取消靜音" : "全部靜音";
+  //   const buttonSpan = toggleAllBtn.querySelector('span:not(.button-icon)');
+  //   buttonSpan.textContent = buttonText;
+  //   toggleAllBtn.classList.toggle("muted", isAllMuted);
+  //   toggleAllBtn.classList.toggle("unmuted", !isAllMuted);
+  //   toggleAllBtn.classList.toggle("neutral", false);
+  //   const iconSpan = toggleAllBtn.querySelector('.button-icon');
+  //   iconSpan.textContent = isAllMuted ? "🔇" : "🔊";
+  // };
 
   const updateCurrentMuteButton = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -86,26 +97,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // 「全部靜音 / 取消靜音」按鈕
-  toggleAllBtn.addEventListener("click", async () => {
-    isAllMuted = !isAllMuted;
-    const tabs = await chrome.tabs.query({});
-    for (const tab of tabs) {
-      await chrome.tabs.update(tab.id, { muted: isAllMuted });
-      if (isAllMuted) {
-        mutedTabIds.add(tab.id);
-      } else {
-        mutedTabIds.delete(tab.id);
-      }
-    }
-    chrome.storage.local.set({
-      isAllMuted,
-      mutedTabIds: Array.from(mutedTabIds),
-    });
+  // toggleAllBtn.addEventListener("click", async () => {
+  //   isAllMuted = !isAllMuted;
+  //   const tabs = await chrome.tabs.query({});
+  //   for (const tab of tabs) {
+  //     await chrome.tabs.update(tab.id, { muted: isAllMuted });
+  //     if (isAllMuted) {
+  //       mutedTabIds.add(tab.id);
+  //     } else {
+  //       mutedTabIds.delete(tab.id);
+  //     }
+  //   }
+  //   chrome.storage.local.set({
+  //     isAllMuted,
+  //     mutedTabIds: Array.from(mutedTabIds),
+  //   });
 
-    updateToggleAllButton();
-    await renderDropdownList();      // ←改成自訂清單
-    await updateCurrentMuteButton();
-  });
+  //   updateToggleAllButton();
+  //   await renderDropdownList();      // ←改成自訂清單
+  //   await updateCurrentMuteButton();
+  // });
 
  
 
