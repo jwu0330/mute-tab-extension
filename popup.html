@@ -75,15 +75,51 @@
       font-size: 14px;
     }
     /* 讓每個 option 左邊留空，並顯示背景圖（favicon） */
-    #tabSelect option {
-    background-repeat: no-repeat;
-    /* 將 favicon 擺在距離左側 1.5em（約等於 emoji 之後）處 */
-    background-position: 1.5em center;
-    background-size: 16px 16px;      /* favicon 大小 */
-    /* 預留 3em 空間：1em 給 emoji，1.5em 給 favicon，再留 0.5em 間距 */
-    padding-left: 3em;
+        .hidden {
+      display: none;
     }
-
+    .dropdown {
+      position: relative;
+      width: 100%;
+    }
+    .hidden {
+      display: none;
+    }
+    #dropdownButton {
+      width: 100%;
+      padding: 10px;
+      text-align: left;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #dropdownList {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #ccc;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      z-index: 100;
+    }
+    #dropdownList li {
+      display: flex;
+      align-items: center;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    #dropdownList li:hover {
+      background: #eee;
+    }
+    #dropdownList img {
+      width: 16px;
+      height: 16px;
+      margin: 0 8px;
+    }
   </style>
 </head>
 <body>
@@ -104,8 +140,10 @@
     </button>
   </div>
 
-  <label for="tabSelect">選擇分頁：</label>
-  <select id="tabSelect"></select>
+  <div class="dropdown">
+      <button id="dropdownButton">選擇分頁 ▾</button>
+      <ul id="dropdownList" class="hidden"></ul>
+  </div>
 
   <div id="selectedTabInfo" class="tab-info"></div>
 

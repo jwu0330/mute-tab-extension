@@ -7,9 +7,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   const toggleAllBtn = document.getElementById("toggleAll");
   const toggleSelectedBtn = document.getElementById("toggleSelected");
   const toggleCurrentBtn = document.getElementById("toggleCurrent");
-  const tabSelect = document.getElementById("tabSelect");
+  // const tabSelect = document.getElementById("tabSelect");
   const selectedTabInfo = document.getElementById("selectedTabInfo");
+  const dropdownButton   = document.getElementById("dropdownButton");
+  const dropdownList     = document.getElementById("dropdownList");
+  let selectedTabId = null;   // 新增：紀錄被選中的 Tab ID
 
+  dropdownButton.addEventListener("click", () => {
+    dropdownList.classList.toggle("hidden");
+  });
   // 初始化：讀取 storage 狀態
   const initState = async () => {
     const storage = await chrome.storage.local.get(["mutedTabIds", "isAllMuted"]);
@@ -17,7 +23,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     isAllMuted = storage.isAllMuted || false;
 
     updateToggleAllButton();
-    await updateTabList();
+    // await updateTabList();
+    await renderDropdownList();
     await updateCurrentMuteButton();
   };
 
@@ -45,41 +52,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     iconSpan.textContent = isMuted ? "🔇" : "▶️";
   };
 
-  const updateSelectedInfo = () => {
-    const tabId = parseInt(tabSelect.value, 10);
-    if (!tabId) return;
-    chrome.tabs.get(tabId, (tab) => {
-      const isMuted = tab?.mutedInfo?.muted;
-      const status = isMuted ? "已靜音 🔇" : "播放中 🔊";
-      selectedTabInfo.textContent = `狀態：${status}`;
-      selectedTabInfo.style.display = "block";
-    });
-  };
 
-  const updateTabList = async () => {
+    /** 新增：以 <ul><li> 形式渲染自訂分頁清單 **/
+  async function renderDropdownList() {
     const tabs = await chrome.tabs.query({});
-    const previousSelectedId = tabSelect.value;
-    tabSelect.innerHTML = "";
-
-    tabs.forEach((tab) => {
-      const icon = tab.mutedInfo?.muted ? "🔇" : "🔊";
-      const option = document.createElement("option");
-      option.value = tab.id;
-      // 顯示前 40 字做簡化
-      option.textContent = `[${icon}] ${tab.title.slice(0, 40)}`;
-      // 2. 背景圖：favicon
+    dropdownList.innerHTML = "";
+    tabs.forEach(tab => {
+      const li = document.createElement("li");
+      const iconEmoji = tab.mutedInfo?.muted ? "🔇" : "🔊";
+      // Emoji
+      const spn = document.createElement("span");
+      spn.textContent = iconEmoji;
+      li.appendChild(spn);
+      // Favicon
       if (tab.favIconUrl) {
-        option.style.backgroundImage = `url(${tab.favIconUrl})`;
+        const img = document.createElement("img");
+        img.src = tab.favIconUrl;
+        li.appendChild(img);
       }
-      tabSelect.appendChild(option);
+      // 標題
+      const t = document.createElement("span");
+      t.textContent = tab.title.slice(0,40);
+      li.appendChild(t);
+      // 點擊選擇
+      li.addEventListener("click", () => {
+        selectedTabId = tab.id;
+        dropdownButton.textContent = `${iconEmoji} ${tab.title.slice(0,20)} ▾`;
+        // dropdownList.classList.add("hidden");
+        selectedTabInfo.textContent = `狀態：${tab.mutedInfo?.muted ? "已靜音 🔇" : "播放中 🔊"}`;
+      });
+      dropdownList.appendChild(li);
     });
-
-    if (previousSelectedId) {
-      tabSelect.value = previousSelectedId;
-    }
-
-    updateSelectedInfo();
-  };
+  }
 
   // 「全部靜音 / 取消靜音」按鈕
   toggleAllBtn.addEventListener("click", async () => {
@@ -99,27 +103,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     updateToggleAllButton();
-    await updateTabList();
+    await renderDropdownList();      // ←改成自訂清單
     await updateCurrentMuteButton();
   });
 
-  // 「選擇靜音 / 取消靜音」按鈕
+ 
+
   toggleSelectedBtn.addEventListener("click", async () => {
-    const tabId = parseInt(tabSelect.value, 10);
-    chrome.tabs.get(tabId, async (tab) => {
-      const newMuted = !tab.mutedInfo.muted;
-      await chrome.tabs.update(tabId, { muted: newMuted });
-      if (newMuted) {
-        mutedTabIds.add(tabId);
-      } else {
-        mutedTabIds.delete(tabId);
-      }
+      if (!selectedTabId) return;
+      const tab = await chrome.tabs.get(selectedTabId);
+      const newMuted = !tab.mutedInfo?.muted;
+      await chrome.tabs.update(selectedTabId, { muted: newMuted });
+      if (newMuted) mutedTabIds.add(selectedTabId);
+      else mutedTabIds.delete(selectedTabId);
       chrome.storage.local.set({ mutedTabIds: Array.from(mutedTabIds) });
-      await updateTabList();
-      updateSelectedInfo();
-      await updateCurrentMuteButton();
+      await renderDropdownList();        // 重新渲染清單
+      await updateCurrentMuteButton();    // 更新按鈕狀態
+      // dropdownList.classList.remove("hidden");  // ← 加回來，保持清單開啟
+
     });
-  });
 
   // 「當前分頁靜音 / 取消靜音」按鈕
   toggleCurrentBtn.addEventListener("click", async () => {
@@ -132,12 +134,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       mutedTabIds.delete(tab.id);
     }
     chrome.storage.local.set({ mutedTabIds: Array.from(mutedTabIds) });
-    await updateTabList();
+    // await updateTabList();
+    await renderDropdownList();
     await updateCurrentMuteButton();
   });
-
-  // 下拉分頁選項改變
-  tabSelect.addEventListener("change", updateSelectedInfo);
 
   // 初始化
   await initState();
