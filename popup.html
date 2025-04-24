@@ -4,197 +4,137 @@
   <meta charset="utf-8">
   <title>分頁靜音控制器</title>
   <style>
+    /* CSS 變數定義 */
+    :root {
+      /* 顏色系統 */
+      --button-muted: #ff6b6b;     /* 靜音按鈕紅色 */
+      --button-unmuted: #4CAF50;   /* 非靜音按鈕綠色 */
+      --button-neutral: #2196F3;   /* 選擇按鈕藍色 */
+      --primary-color: #4CAF50;    /* 主要顏色保持綠色 */
+      --primary-hover: #45a049;    /* 主要顏色的懸停狀態 */
+      --background-light: #f0f0f0;
+      --background-white: #fff;
+      --text-primary: #333;
+      --text-secondary: #666;
+      --border-color: #ccc;
+      
+      /* 間距系統 */
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 15px;
+      --spacing-lg: 20px;
+      
+      /* 圓角 */
+      --border-radius-sm: 4px;
+      --border-radius-md: 6px;
+      --border-radius-lg: 8px;
+      
+      /* 陰影 */
+      --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+      --shadow-md: 0 2px 8px rgba(0,0,0,0.1);
+      
+      /* 字體大小 */
+      --font-sm: 12px;
+      --font-md: 14px;
+      --font-lg: 18px;
+    }
+
+    /* 基礎樣式 */
     body {
       font-family: Arial, sans-serif;
-      padding: 15px;
+      padding: var(--spacing-md);
       min-width: 350px;
-      background-color: #f0f0f0;
+      background-color: var(--background-light);
     }
+
+    /* 卡片容器 */
+    .card {
+      background: var(--background-white);
+      border-radius: var(--border-radius-lg);
+      padding: var(--spacing-lg);
+      box-shadow: var(--shadow-md);
+      max-width: 380px;
+      margin: auto;
+    }
+
+    /* 標題樣式 */
     h2 {
-      margin-bottom: 15px;
-      font-size: 18px;
-      color: #333;
+      margin: 0;
+      font-size: var(--font-lg);
+      color: var(--text-primary);
+      flex: 1;
     }
-    .button-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 15px;
-    }
-    .button-group button {
-      width: 100%;
-      padding: 10px;
-      font-size: 14px;
+
+    /* 按鈕基礎樣式 */
+    .btn {
+      padding: var(--spacing-sm) var(--spacing-md);
       border: none;
-      border-radius: 6px;
+      border-radius: var(--border-radius-md);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      font-size: var(--font-md);
     }
-    .button-group button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .button-group button:active {
-      transform: translateY(0);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+
+    /* 按鈕狀態樣式 */
     button.muted {
-      background-color: #ff6b6b;
+      background-color: var(--button-muted);
       color: white;
     }
+
     button.unmuted {
-      background-color: #4CAF50;
+      background-color: var(--button-unmuted);
       color: white;
     }
+
     button.neutral {
-      background-color: #2196F3;
+      background-color: var(--button-neutral);
       color: white;
     }
-    .button-icon {
-      margin-right: 8px;
-      font-size: 16px;
-    }
-    select {
-      padding: 8px;
-      width: 100%;
-      font-size: 14px;
-      margin: 10px 0 5px;
-      /* display: none; 將多餘資訊區隱藏 */
-    }
-    .tab-info {
-      font-size: 13px;
-      color: #333;
-      margin-bottom: 10px;
-    }
-    .error {
-      color: red;
-      font-size: 14px;
-    }
-    /* 讓每個 option 左邊留空，並顯示背景圖（favicon） */
-    /* .hidden {
+
+    /* 移除之前新增的按鈕變體樣式 */
+    .btn-primary,
+    .btn-neutral,
+    .btn-danger {
       display: none;
-    } */
+    }
 
+    /* 按鈕群組 */
+    .button-row {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-md);
+    }
 
+    .button-row button {
+      flex: 1;
+    }
+
+    /* 圖示樣式 */
+    .button-icon {
+      margin-right: var(--spacing-sm);
+      font-size: var(--font-md);
+    }
+
+    /* 下拉選單樣式 */
     .dropdown {
       position: relative;
       width: 100%;
     }
-    .hidden {
-      display: none;
-    }
-    .card {
-      background: #fff;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      max-width: 380px;
-      margin: auto;
-    }
-    .header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-     /* 開關文字 */
-    .switch-label {
-      margin-left: 8px;
-      font-size: 14px;
-      color: #333;
-    }
-    /* 按鈕行列 */
-    .button-row button {
-      flex: 1;
-      margin: 0 4px;
-    }
-    .button-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 15px;
-    }
-
-    /* 小開關樣式 */
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 40px;
-      height: 20px;
-    }
-    .switch input { display:none; }
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #ccc;
-      border-radius: 12px;
-      transition: .4s;
-    }
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 16px; width: 16px;
-      left: 2px; bottom: 2px;
-      background-color: white;
-      border-radius: 50%;
-      transition: .4s;
-    }
-    input:checked +.slider { background-color: #4CAF50; }
-    input:checked +.slider:before { transform: translateX(20px); }
-
-    /* 還原按鈕樣式 */
-    .restore-button {
-      padding: 4px 8px;
-      font-size: 12px;
-      border: none;
-      border-radius: 4px;
-      background-color: #f0f0f0;
-      color: #666;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      transition: all 0.2s ease;
-    }
-    .restore-button:hover {
-      background-color: #e0e0e0;
-    }
-    .restore-button .button-icon {
-      font-size: 14px;
-    }
-    
-    /* 兩個控制並排 */
-    .controls-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 12px;
-      position: relative; /* 讓 #dropdownList 的 absolute 定位正確 */
-
-    }
-    .status-indicator {
-      padding: 6px 12px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 14px;
-      white-space: nowrap;
-    }
-
-    #dropdownList.hidden {
-      display: none;
-    }
 
     #dropdownButton {
       width: 100%;
-      padding: 10px;
+      padding: var(--spacing-sm);
       text-align: left;
-      font-size: 14px;
+      font-size: var(--font-md);
       cursor: pointer;
+      background: var(--background-white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-sm);
     }
+
     #dropdownList {
       position: absolute;
       top: 100%;
@@ -202,32 +142,147 @@
       right: 0;
       max-height: 200px;
       overflow-y: auto;
-      background: #fff;
-      border: 1px solid #ccc;
-      border-top: none; 
-      border-bottom-left-radius: 8px;
-      border-bottom-right-radius: 8px;
+      background: var(--background-white);
+      border: 1px solid var(--border-color);
+      border-top: none;
+      border-bottom-left-radius: var(--border-radius-lg);
+      border-bottom-right-radius: var(--border-radius-lg);
       margin: 0;
       padding: 0;
       list-style: none;
       z-index: 100;
     }
+
     #dropdownList li {
       display: flex;
       align-items: center;
-      padding: 6px 10px;
+      padding: var(--spacing-xs) var(--spacing-sm);
       cursor: pointer;
     }
+
     #dropdownList li:hover {
-      background: #eee;
+      background: var(--background-light);
     }
+
     #dropdownList img {
       width: 16px;
       height: 16px;
-      margin: 0 8px;
+      margin: 0 var(--spacing-sm);
     }
 
-    /* 自定義對話框樣式 */
+    /* 開關樣式 */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+
+    .switch input { 
+      display: none; 
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--border-color);
+      border-radius: 12px;
+      transition: .4s;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      border-radius: 50%;
+      transition: .4s;
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary-color);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* 頁首列 */
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .header-controls {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+      align-items: flex-end;
+      min-width: 120px;
+    }
+
+    #restoreButton {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      font-size: var(--font-sm);
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0s, opacity 0.2s linear;
+    }
+
+    #restoreButton.visible {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    #restoreButton .button-icon {
+      font-size: var(--font-sm);
+      margin-right: 2px;
+    }
+
+    .global-mute-container {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+
+    /* 開關標籤 */
+    .switch-label {
+      font-size: var(--font-sm);
+    }
+
+    /* 控制列 */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-md);
+      position: relative;
+    }
+
+    /* 狀態指示器 */
+    .status-indicator {
+      padding: var(--spacing-xs) var(--spacing-md);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-sm);
+      font-size: var(--font-md);
+      white-space: nowrap;
+    }
+
+    /* 自定義對話框 */
     .custom-dialog {
       position: absolute;
       top: 0;
@@ -242,47 +297,47 @@
     }
 
     .dialog-content {
-      background-color: white;
-      padding: 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      background-color: var(--background-white);
+      padding: var(--spacing-md);
+      border-radius: var(--border-radius-lg);
+      box-shadow: var(--shadow-md);
       width: 200px;
     }
 
     .dialog-content p {
-      margin: 0 0 16px 0;
-      font-size: 14px;
-      color: #333;
+      margin: 0 0 var(--spacing-md) 0;
+      font-size: var(--font-md);
+      color: var(--text-primary);
       text-align: center;
     }
 
     .dialog-buttons {
       display: flex;
       justify-content: center;
-      gap: 8px;
+      gap: var(--spacing-sm);
     }
 
     .dialog-button {
-      padding: 6px 12px;
+      padding: var(--spacing-xs) var(--spacing-md);
       border: none;
-      border-radius: 4px;
+      border-radius: var(--border-radius-sm);
       cursor: pointer;
-      font-size: 13px;
+      font-size: var(--font-sm);
       transition: all 0.2s ease;
     }
 
     .dialog-button.confirm {
-      background-color: #4CAF50;
+      background-color: var(--primary-color);
       color: white;
     }
 
     .dialog-button.confirm:hover {
-      background-color: #45a049;
+      background-color: var(--primary-hover);
     }
 
     .dialog-button.cancel {
-      background-color: #f0f0f0;
-      color: #666;
+      background-color: var(--background-light);
+      color: var(--text-secondary);
     }
 
     .dialog-button.cancel:hover {
@@ -299,17 +354,18 @@
   <div class="card">
     <div class="header-row">
       <h2>分頁靜音控制器</h2>
-      <!-- 全域靜音開關和還原按鈕 -->
-      <div style="display:flex; align-items:center; gap: 8px;">
-        <button id="restoreButton" class="restore-button" style="display: none;">
+      <div class="header-controls">
+        <button id="restoreButton" class="restore-button">
           <span class="button-icon">🔄</span>
           <span>還原全部</span>
         </button>
-        <label class="switch">
-          <input type="checkbox" id="globalMuteToggle">
-          <span class="slider"></span>
-        </label>
-        <span class="switch-label">全域靜音</span>
+        <div class="global-mute-container">
+          <label class="switch">
+            <input type="checkbox" id="globalMuteToggle">
+            <span class="slider"></span>
+          </label>
+          <span class="switch-label">全域靜音</span>
+        </div>
       </div>
     </div>
     

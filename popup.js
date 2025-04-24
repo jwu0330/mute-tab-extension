@@ -115,7 +115,14 @@ async function handleSelectedTabMute() {
   }
   
   await syncStateToStorage();
+  
+  // 更新選中分頁的狀態顯示
+  const updatedTab = await chrome.tabs.get(selectedTabId);
+  await updateSelectedTabInfo(updatedTab);
+  
+  // 更新所有 UI 狀態
   await updateUIStates();
+  await renderDropdownList();
 }
 
 function showRestoreDialog() {
@@ -161,31 +168,66 @@ async function updateUIStates() {
 
 async function updateButtonStates() {
   const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  currentTabMuteState = currentTab?.mutedInfo?.muted || false;
+  if (!currentTab) return;
+
+  // 使用統一的狀態檢查函數
+  currentTabMuteState = await checkTabMuteState(currentTab.id);
   
-  const currentButtonText = currentTabMuteState ? "當前取消靜音" : "當前靜音";
-  const currentButtonSpan = toggleCurrentBtn.querySelector('span:not(.button-icon)');
-  currentButtonSpan.textContent = currentButtonText;
+  // 更新當前分頁按鈕狀態
+  updateButtonState(toggleCurrentBtn, currentTabMuteState, "當前");
   
-  // 更新按鈕樣式
-  toggleCurrentBtn.classList.remove("muted", "unmuted", "neutral");
-  if (currentTabMuteState) {
-    toggleCurrentBtn.classList.add("muted");  // 靜音時顯示紅色
-  } else {
-    toggleCurrentBtn.classList.add("unmuted");  // 非靜音時顯示綠色
+  // 如果有選中的分頁，更新其狀態
+  if (selectedTabId) {
+    const selectedTabMuteState = await checkTabMuteState(selectedTabId);
+    updateButtonState(toggleSelectedBtn, selectedTabMuteState, "選擇");
+    
+    // 更新下拉按鈕顯示
+    const selectedTab = await chrome.tabs.get(selectedTabId);
+    updateDropdownButtonDisplay(selectedTab, selectedTabMuteState);
   }
-  
-  const currentIconSpan = toggleCurrentBtn.querySelector('.button-icon');
-  currentIconSpan.textContent = currentTabMuteState ? "🔇" : "▶️";
 }
 
+// 修改更新按鈕狀態的輔助函數
+function updateButtonState(button, isMuted, prefix) {
+  const buttonText = prefix === "當前" 
+    ? (isMuted ? "當前分頁靜音" : "當前分頁")
+    : "分頁音訊開關";
+    
+  const buttonSpan = button.querySelector('span:not(.button-icon)');
+  buttonSpan.textContent = buttonText;
+  
+  button.classList.remove("muted", "unmuted", "neutral");
+  button.classList.add(prefix === "當前" ? (isMuted ? "muted" : "unmuted") : "neutral");
+  
+  const iconSpan = button.querySelector('.button-icon');
+  iconSpan.textContent = isMuted ? "🔇" : (prefix === "當前" ? "▶️" : "🎵");
+}
+
+// 新增：更新下拉按鈕顯示的輔助函數
+function updateDropdownButtonDisplay(tab, isMuted) {
+  const iconEmoji = isMuted ? "🔇" : "🔊";
+  const buttonContent = document.createElement("div");
+  buttonContent.style.display = "flex";
+  buttonContent.style.alignItems = "center";
+  buttonContent.style.gap = "8px";
+  buttonContent.innerHTML = `
+    <span>${iconEmoji}</span>
+    ${tab.favIconUrl ? `<img src="${tab.favIconUrl}" style="width: 16px; height: 16px;">` : ''}
+    <span style="overflow: hidden; text-overflow: ellipsis;">${tab.title.slice(0, 30)}${tab.title.length > 30 ? '...' : ''}</span>
+    <span style="margin-left: auto">▾</span>
+  `;
+  dropdownButton.innerHTML = '';
+  dropdownButton.appendChild(buttonContent);
+}
+
+// 修改 renderDropdownList 函數中的狀態檢查
 async function renderDropdownList() {
   const tabs = await chrome.tabs.query({});
   dropdownList.innerHTML = "";
   
-  tabs.forEach(tab => {
+  for (const tab of tabs) {
     const li = document.createElement("li");
-    const isMuted = isTabMuted(tab.id);
+    const isMuted = await checkTabMuteState(tab.id);
     const iconEmoji = isMuted ? "🔇" : "🔊";
     
     // Emoji
@@ -209,16 +251,40 @@ async function renderDropdownList() {
     li.addEventListener("click", () => {
       selectedTabId = tab.id;
       dropdownButton.textContent = `${iconEmoji} ${tab.title.slice(0, 20)} ▾`;
-      selectedTabInfo.textContent = `狀態：${isMuted ? "已靜音 🔇" : "播放中 🔊"}`;
+      updateSelectedTabInfo(tab);
     });
     
     dropdownList.appendChild(li);
-  });
+  }
+}
+
+async function updateSelectedTabInfo(tab) {
+  // 檢查分頁的靜音狀態
+  const isMuted = await checkTabMuteState(tab.id);
+  selectedTabInfo.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+      <span>狀態：</span>
+      <span>${isMuted ? "已靜音 🔇" : "播放中 🔊"}</span>
+      ${tab.favIconUrl ? `<img src="${tab.favIconUrl}" style="width: 16px; height: 16px;">` : ''}
+      <span style="overflow: hidden; text-overflow: ellipsis;">${tab.title.slice(0, 20)}${tab.title.length > 20 ? '...' : ''}</span>
+    </div>
+  `;
+}
+
+// 新增：統一檢查分頁靜音狀態的函數
+async function checkTabMuteState(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    return tab.mutedInfo?.muted || individualMutedTabs.has(tabId) || isAllMuted;
+  } catch (error) {
+    console.error('Error checking tab mute state:', error);
+    return false;
+  }
 }
 
 function updateRestoreButton() {
   const hasMutedTabs = individualMutedTabs.size > 0 || globalMutedTabs.size > 0;
-  restoreButton.style.display = hasMutedTabs ? "block" : "none";
+  restoreButton.classList.toggle('visible', hasMutedTabs);
 }
 
 // 狀態同步相關
@@ -251,3 +317,4 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 初始化狀態
   await initializeState();
 });
+
