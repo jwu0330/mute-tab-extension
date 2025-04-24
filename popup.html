@@ -6,37 +6,40 @@
   <style>
     /* CSS 變數定義 */
     :root {
-      /* 顏色系統 */
-      --button-muted: #ff6b6b;     /* 靜音按鈕紅色 */
-      --button-unmuted: #4CAF50;   /* 非靜音按鈕綠色 */
-      --button-neutral: #2196F3;   /* 選擇按鈕藍色 */
-      --primary-color: #4CAF50;    /* 主要顏色保持綠色 */
-      --primary-hover: #45a049;    /* 主要顏色的懸停狀態 */
-      --background-light: #f0f0f0;
-      --background-white: #fff;
-      --text-primary: #333;
-      --text-secondary: #666;
-      --border-color: #ccc;
+      /* 顏色系統 - 更柔和的色調 */
+      --button-muted: #ff6b6b;     /* 保持原有的靜音按鈕紅色 */
+      --button-unmuted: #4CAF50;   /* 保持原有的非靜音按鈕綠色 */
+      --button-neutral: #2196F3;   /* 保持原有的選擇按鈕藍色 */
+      --primary-color: #4CAF50;    /* 保持原有的主要顏色 */
+      --primary-hover: #45a049;    /* 保持原有的主要顏色懸停狀態 */
+      --background-light: #f8f9fa; /* 更柔和的背景色 */
+      --background-white: #ffffff;
+      --text-primary: #2c3e50;     /* 更深的文字顏色，提高可讀性 */
+      --text-secondary: #6c757d;   /* 更柔和的次要文字顏色 */
+      --border-color: #e9ecef;     /* 更柔和的邊框顏色 */
       
-      /* 間距系統 */
+      /* 陰影系統 - 更精緻的層次 */
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05), 0 4px 6px rgba(0, 0, 0, 0.1);
+      --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+      
+      /* 間距系統 - 更精確的間距控制 */
       --spacing-xs: 4px;
       --spacing-sm: 8px;
-      --spacing-md: 15px;
-      --spacing-lg: 20px;
+      --spacing-md: 16px;
+      --spacing-lg: 24px;
       
-      /* 圓角 */
+      /* 圓角 - 更現代化的設計 */
       --border-radius-sm: 4px;
-      --border-radius-md: 6px;
-      --border-radius-lg: 8px;
+      --border-radius-md: 8px;
+      --border-radius-lg: 12px;
       
-      /* 陰影 */
-      --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
-      --shadow-md: 0 2px 8px rgba(0,0,0,0.1);
-      
-      /* 字體大小 */
-      --font-sm: 12px;
-      --font-md: 14px;
-      --font-lg: 18px;
+      /* 字體大小 - 更清晰的層次 */
+      --font-xs: 12px;
+      --font-sm: 14px;
+      --font-md: 16px;
+      --font-lg: 20px;
     }
 
     /* 基礎樣式 */
@@ -47,14 +50,20 @@
       background-color: var(--background-light);
     }
 
-    /* 卡片容器 */
+    /* 卡片容器 - 增強視覺層次 */
     .card {
       background: var(--background-white);
       border-radius: var(--border-radius-lg);
       padding: var(--spacing-lg);
-      box-shadow: var(--shadow-md);
+      box-shadow: var(--shadow-lg);
       max-width: 380px;
       margin: auto;
+      border: 1px solid var(--border-color);
+      transition: box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 0, 0, 0.05);
     }
 
     /* 標題樣式 */
@@ -65,7 +74,7 @@
       flex: 1;
     }
 
-    /* 按鈕基礎樣式 */
+    /* 按鈕基礎樣式 - 更精緻的視覺效果 */
     .btn {
       padding: var(--spacing-sm) var(--spacing-md);
       border: none;
@@ -76,6 +85,12 @@
       justify-content: center;
       transition: all 0.2s ease;
       font-size: var(--font-md);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
     }
 
     /* 按鈕狀態樣式 */
@@ -118,7 +133,7 @@
       font-size: var(--font-md);
     }
 
-    /* 下拉選單樣式 */
+    /* 下拉選單樣式 - 修正版本 */
     .dropdown {
       position: relative;
       width: 100%;
@@ -126,13 +141,23 @@
 
     #dropdownButton {
       width: 100%;
-      padding: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-md);
       text-align: left;
       font-size: var(--font-md);
       cursor: pointer;
       background: var(--background-white);
       border: 1px solid var(--border-color);
-      border-radius: var(--border-radius-sm);
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #dropdownButton:hover {
+      box-shadow: var(--shadow-md);
+      border-color: var(--primary-color);
     }
 
     #dropdownList {
@@ -140,17 +165,17 @@
       top: 100%;
       left: 0;
       right: 0;
-      max-height: 200px;
+      max-height: 300px;
       overflow-y: auto;
       background: var(--background-white);
       border: 1px solid var(--border-color);
       border-top: none;
-      border-bottom-left-radius: var(--border-radius-lg);
-      border-bottom-right-radius: var(--border-radius-lg);
+      border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
       margin: 0;
       padding: 0;
       list-style: none;
       z-index: 100;
+      box-shadow: var(--shadow-md);
     }
 
     #dropdownList li {
@@ -158,6 +183,7 @@
       align-items: center;
       padding: var(--spacing-xs) var(--spacing-sm);
       cursor: pointer;
+      transition: background-color 0.2s ease;
     }
 
     #dropdownList li:hover {
@@ -170,12 +196,12 @@
       margin: 0 var(--spacing-sm);
     }
 
-    /* 開關樣式 */
+    /* 開關樣式 - 更精緻的視覺效果 */
     .switch {
       position: relative;
       display: inline-block;
-      width: 36px;
-      height: 20px;
+      width: 40px;
+      height: 24px;
     }
 
     .switch input { 
@@ -190,20 +216,22 @@
       right: 0;
       bottom: 0;
       background-color: var(--border-color);
-      border-radius: 12px;
+      border-radius: 24px;
       transition: .4s;
+      box-shadow: var(--shadow-inner);
     }
 
     .slider:before {
       position: absolute;
       content: "";
-      height: 16px;
-      width: 16px;
+      height: 20px;
+      width: 20px;
       left: 2px;
       bottom: 2px;
       background-color: white;
       border-radius: 50%;
       transition: .4s;
+      box-shadow: var(--shadow-sm);
     }
 
     input:checked + .slider {
@@ -211,7 +239,7 @@
     }
 
     input:checked + .slider:before {
-      transform: translateX(20px);
+      transform: translateX(16px);
     }
 
     /* 頁首列 */
@@ -282,26 +310,28 @@
       white-space: nowrap;
     }
 
-    /* 自定義對話框 */
+    /* 自定義對話框 - 更精緻的視覺效果 */
     .custom-dialog {
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background-color: rgba(0, 0, 0, 0.5);
+      background-color: rgba(0, 0, 0, 0.3);
       display: flex;
       justify-content: center;
       align-items: center;
       z-index: 1000;
+      backdrop-filter: blur(2px);
     }
 
     .dialog-content {
       background-color: var(--background-white);
-      padding: var(--spacing-md);
+      padding: var(--spacing-lg);
       border-radius: var(--border-radius-lg);
-      box-shadow: var(--shadow-md);
-      width: 200px;
+      box-shadow: var(--shadow-lg);
+      width: 280px;
+      border: 1px solid var(--border-color);
     }
 
     .dialog-content p {
@@ -346,6 +376,28 @@
 
     .hidden {
       display: none !important;
+    }
+
+    /* 分頁狀態顯示樣式 */
+    .tab-info {
+      margin-top: var(--spacing-md);
+      padding: var(--spacing-sm);
+      background: var(--background-white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .tab-info span {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+    }
+
+    .tab-info img {
+      width: 16px;
+      height: 16px;
+      vertical-align: middle;
     }
   </style>
 </head>
