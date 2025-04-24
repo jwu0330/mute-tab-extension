@@ -19,6 +19,9 @@ let dropdownButton;
 let dropdownList;
 let selectedTabInfo;
 let restoreButton;
+let customDialog;
+let dialogConfirm;
+let dialogCancel;
 
 // 初始化相關
 async function initializeState() {
@@ -49,11 +52,12 @@ function setupEventListeners() {
   dropdownButton.addEventListener("click", () => {
     const isHidden = dropdownList.classList.toggle("hidden");
     if (isHidden) {
-      // 當選單收合時，恢復到原始的 HTML 內容
       dropdownButton.innerHTML = "選擇分頁 ▾";
     }
   });
-  restoreButton.addEventListener("click", handleRestore);
+  restoreButton.addEventListener("click", showRestoreDialog);
+  dialogConfirm.addEventListener("click", handleRestoreConfirm);
+  dialogCancel.addEventListener("click", hideRestoreDialog);
 }
 
 // 靜音控制相關
@@ -114,30 +118,38 @@ async function handleSelectedTabMute() {
   await updateUIStates();
 }
 
-async function handleRestore() {
-  // 顯示確認對話框
-  if (confirm("確定要還原全部靜音設定嗎？")) {
-    // 重置所有狀態
-    isAllMuted = false;
-    globalMutedTabs.clear();
-    individualMutedTabs.clear();
-    globalMuteToggle.checked = false;
-    
-    // 更新所有分頁的靜音狀態
-    const tabs = await chrome.tabs.query({});
-    for (const tab of tabs) {
-      await chrome.tabs.update(tab.id, { muted: false });
-    }
-    
-    // 同步狀態到 storage
-    await syncStateToStorage();
-    
-    // 更新 UI
-    await updateUIStates();
-    
-    // 隱藏還原按鈕
-    restoreButton.style.display = "none";
+function showRestoreDialog() {
+  customDialog.classList.remove("hidden");
+}
+
+function hideRestoreDialog() {
+  customDialog.classList.add("hidden");
+}
+
+async function handleRestoreConfirm() {
+  // 隱藏對話框
+  hideRestoreDialog();
+  
+  // 重置所有狀態
+  isAllMuted = false;
+  globalMutedTabs.clear();
+  individualMutedTabs.clear();
+  globalMuteToggle.checked = false;
+  
+  // 更新所有分頁的靜音狀態
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    await chrome.tabs.update(tab.id, { muted: false });
   }
+  
+  // 同步狀態到 storage
+  await syncStateToStorage();
+  
+  // 更新 UI
+  await updateUIStates();
+  
+  // 隱藏還原按鈕
+  restoreButton.style.display = "none";
 }
 
 // UI 更新相關
@@ -232,6 +244,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   dropdownList = document.getElementById("dropdownList");
   selectedTabInfo = document.getElementById("selectedTabInfo");
   restoreButton = document.getElementById("restoreButton");
+  customDialog = document.getElementById("customDialog");
+  dialogConfirm = document.getElementById("dialogConfirm");
+  dialogCancel = document.getElementById("dialogCancel");
   
   // 初始化狀態
   await initializeState();
