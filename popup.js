@@ -1,164 +1,238 @@
 // popup.js
 
-let mutedTabIds = new Set();
+// 全域狀態變數
 let isAllMuted = false;
+let globalMutedTabs = new Set();
+let individualMutedTabs = new Set();
+let selectedTabId = null;
 
-document.addEventListener("DOMContentLoaded", async () => {
-  const globalMuteToggle = document.getElementById("globalMuteToggle");
-  const toggleSelectedBtn = document.getElementById("toggleSelected");
-  const toggleCurrentBtn = document.getElementById("toggleCurrent");
-  // const tabSelect = document.getElementById("tabSelect");
-  const selectedTabInfo = document.getElementById("selectedTabInfo");
-  const dropdownButton   = document.getElementById("dropdownButton");
-  const dropdownList     = document.getElementById("dropdownList");
-  let selectedTabId = null;   // 新增：紀錄被選中的 Tab ID
+// UI 狀態變數
+let isRestoreButtonVisible = false;
+let currentTabMuteState = false;
+let selectedTabMuteState = false;
 
+// DOM 元素
+let globalMuteToggle;
+let toggleSelectedBtn;
+let toggleCurrentBtn;
+let dropdownButton;
+let dropdownList;
+let selectedTabInfo;
+let restoreButton;
+
+// 初始化相關
+async function initializeState() {
+  // 載入儲存的狀態
+  await loadStoredState();
+  
+  // 設定事件監聽器
+  setupEventListeners();
+  
+  // 初始化 UI
+  await updateUIStates();
+}
+
+async function loadStoredState() {
+  const storage = await chrome.storage.local.get(["mutedTabIds", "isAllMuted"]);
+  if (storage.mutedTabIds) {
+    individualMutedTabs = new Set(storage.mutedTabIds);
+  }
+  if (typeof storage.isAllMuted !== "undefined") {
+    isAllMuted = storage.isAllMuted;
+  }
+}
+
+function setupEventListeners() {
+  globalMuteToggle.addEventListener("change", handleGlobalMuteChange);
+  toggleSelectedBtn.addEventListener("click", handleSelectedTabMute);
+  toggleCurrentBtn.addEventListener("click", handleCurrentTabMute);
   dropdownButton.addEventListener("click", () => {
-    dropdownList.classList.toggle("hidden");
+    const isHidden = dropdownList.classList.toggle("hidden");
+    if (isHidden) {
+      // 當選單收合時，恢復到原始的 HTML 內容
+      dropdownButton.innerHTML = "選擇分頁 ▾";
+    }
   });
-  // 初始化：讀取 storage 狀態
-  const initState = async () => {
-    const storage = await chrome.storage.local.get(["mutedTabIds", "isAllMuted"]);
-    mutedTabIds = new Set(storage.mutedTabIds || []);
-    isAllMuted = storage.isAllMuted || false;
+  restoreButton.addEventListener("click", handleRestore);
+}
 
-    globalMuteToggle.checked = isAllMuted;
-    // await updateTabList();
-    await renderDropdownList();
-    await updateCurrentMuteButton();
-  };
+// 靜音控制相關
+async function handleGlobalMuteChange() {
+  isAllMuted = globalMuteToggle.checked;
+  const tabs = await chrome.tabs.query({});
+  
+  for (const tab of tabs) {
+    await chrome.tabs.update(tab.id, { muted: isAllMuted });
+    if (isAllMuted) {
+      globalMutedTabs.add(tab.id);
+    } else {
+      globalMutedTabs.delete(tab.id);
+    }
+  }
+  
+  await syncStateToStorage();
+  await updateUIStates();
+}
 
-  // 全域靜音開關事件
-  globalMuteToggle.addEventListener("change", async () => {
-    isAllMuted = globalMuteToggle.checked;
+async function handleCurrentTabMute() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab) return;
+  
+  const newMuted = !tab.mutedInfo?.muted;
+  await chrome.tabs.update(tab.id, { muted: newMuted });
+  
+  if (newMuted) {
+    individualMutedTabs.add(tab.id);
+  } else {
+    individualMutedTabs.delete(tab.id);
+  }
+  
+  await syncStateToStorage();
+  await updateUIStates();
+}
+
+async function handleSelectedTabMute() {
+  if (!selectedTabId) return;
+  
+  if (isAllMuted) {
+    isAllMuted = false;
+    globalMuteToggle.checked = false;
+    await syncStateToStorage();
+  }
+  
+  const tab = await chrome.tabs.get(selectedTabId);
+  const newMuted = !tab.mutedInfo?.muted;
+  await chrome.tabs.update(selectedTabId, { muted: newMuted });
+  
+  if (newMuted) {
+    individualMutedTabs.add(selectedTabId);
+  } else {
+    individualMutedTabs.delete(selectedTabId);
+  }
+  
+  await syncStateToStorage();
+  await updateUIStates();
+}
+
+async function handleRestore() {
+  // 顯示確認對話框
+  if (confirm("確定要還原全部靜音設定嗎？")) {
+    // 重置所有狀態
+    isAllMuted = false;
+    globalMutedTabs.clear();
+    individualMutedTabs.clear();
+    globalMuteToggle.checked = false;
+    
+    // 更新所有分頁的靜音狀態
     const tabs = await chrome.tabs.query({});
     for (const tab of tabs) {
-      await chrome.tabs.update(tab.id, { muted: isAllMuted });
-      if (isAllMuted) mutedTabIds.add(tab.id);
-      else mutedTabIds.delete(tab.id);
+      await chrome.tabs.update(tab.id, { muted: false });
     }
-    chrome.storage.local.set({ isAllMuted, mutedTabIds: Array.from(mutedTabIds) });
-    await renderDropdownList();
-    await updateCurrentMuteButton();
-  });
-  // const updateToggleAllButton = () => {
-  //   const buttonText = isAllMuted ? "全部取消靜音" : "全部靜音";
-  //   const buttonSpan = toggleAllBtn.querySelector('span:not(.button-icon)');
-  //   buttonSpan.textContent = buttonText;
-  //   toggleAllBtn.classList.toggle("muted", isAllMuted);
-  //   toggleAllBtn.classList.toggle("unmuted", !isAllMuted);
-  //   toggleAllBtn.classList.toggle("neutral", false);
-  //   const iconSpan = toggleAllBtn.querySelector('.button-icon');
-  //   iconSpan.textContent = isAllMuted ? "🔇" : "🔊";
-  // };
-
-  const updateCurrentMuteButton = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const isMuted = tab?.mutedInfo?.muted;
-    const buttonText = isMuted ? "當前取消靜音" : "當前靜音";
-    const buttonSpan = toggleCurrentBtn.querySelector('span:not(.button-icon)');
-    buttonSpan.textContent = buttonText;
-    toggleCurrentBtn.classList.toggle("muted", isMuted);
-    toggleCurrentBtn.classList.toggle("unmuted", !isMuted);
-    toggleCurrentBtn.classList.toggle("neutral", false);
-    const iconSpan = toggleCurrentBtn.querySelector('.button-icon');
-    iconSpan.textContent = isMuted ? "🔇" : "▶️";
-  };
-
-
-    /** 新增：以 <ul><li> 形式渲染自訂分頁清單 **/
-  async function renderDropdownList() {
-    const tabs = await chrome.tabs.query({});
-    dropdownList.innerHTML = "";
-    tabs.forEach(tab => {
-      const li = document.createElement("li");
-      const iconEmoji = tab.mutedInfo?.muted ? "🔇" : "🔊";
-      // Emoji
-      const spn = document.createElement("span");
-      spn.textContent = iconEmoji;
-      li.appendChild(spn);
-      // Favicon
-      if (tab.favIconUrl) {
-        const img = document.createElement("img");
-        img.src = tab.favIconUrl;
-        li.appendChild(img);
-      }
-      // 標題
-      const t = document.createElement("span");
-      t.textContent = tab.title.slice(0,40);
-      li.appendChild(t);
-      // 點擊選擇
-      li.addEventListener("click", () => {
-        selectedTabId = tab.id;
-        dropdownButton.textContent = `${iconEmoji} ${tab.title.slice(0,20)} ▾`;
-        // dropdownList.classList.add("hidden");
-        selectedTabInfo.textContent = `狀態：${tab.mutedInfo?.muted ? "已靜音 🔇" : "播放中 🔊"}`;
-      });
-      dropdownList.appendChild(li);
-    });
+    
+    // 同步狀態到 storage
+    await syncStateToStorage();
+    
+    // 更新 UI
+    await updateUIStates();
+    
+    // 隱藏還原按鈕
+    restoreButton.style.display = "none";
   }
+}
 
-  // 「全部靜音 / 取消靜音」按鈕
-  // toggleAllBtn.addEventListener("click", async () => {
-  //   isAllMuted = !isAllMuted;
-  //   const tabs = await chrome.tabs.query({});
-  //   for (const tab of tabs) {
-  //     await chrome.tabs.update(tab.id, { muted: isAllMuted });
-  //     if (isAllMuted) {
-  //       mutedTabIds.add(tab.id);
-  //     } else {
-  //       mutedTabIds.delete(tab.id);
-  //     }
-  //   }
-  //   chrome.storage.local.set({
-  //     isAllMuted,
-  //     mutedTabIds: Array.from(mutedTabIds),
-  //   });
+// UI 更新相關
+async function updateUIStates() {
+  await updateButtonStates();
+  await renderDropdownList();
+  updateRestoreButton();
+}
 
-  //   updateToggleAllButton();
-  //   await renderDropdownList();      // ←改成自訂清單
-  //   await updateCurrentMuteButton();
-  // });
+async function updateButtonStates() {
+  const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  currentTabMuteState = currentTab?.mutedInfo?.muted || false;
+  
+  const currentButtonText = currentTabMuteState ? "當前取消靜音" : "當前靜音";
+  const currentButtonSpan = toggleCurrentBtn.querySelector('span:not(.button-icon)');
+  currentButtonSpan.textContent = currentButtonText;
+  
+  // 更新按鈕樣式
+  toggleCurrentBtn.classList.remove("muted", "unmuted", "neutral");
+  if (currentTabMuteState) {
+    toggleCurrentBtn.classList.add("muted");  // 靜音時顯示紅色
+  } else {
+    toggleCurrentBtn.classList.add("unmuted");  // 非靜音時顯示綠色
+  }
+  
+  const currentIconSpan = toggleCurrentBtn.querySelector('.button-icon');
+  currentIconSpan.textContent = currentTabMuteState ? "🔇" : "▶️";
+}
 
- 
-
-  toggleSelectedBtn.addEventListener("click", async () => {
-      if (!selectedTabId) return;
-          // —— 如果还在全域静音模式，先把全域关掉 —— 
-      if (isAllMuted) {
-        isAllMuted = false;
-        globalMuteToggle.checked = false;
-        // 只保存当前 mutedTabIds，让 background 以后只管这些
-        chrome.storage.local.set({ isAllMuted, mutedTabIds: Array.from(mutedTabIds) });
-      }
-      const tab = await chrome.tabs.get(selectedTabId);
-      const newMuted = !tab.mutedInfo?.muted;
-      await chrome.tabs.update(selectedTabId, { muted: newMuted });
-      if (newMuted) mutedTabIds.add(selectedTabId);
-      else mutedTabIds.delete(selectedTabId);
-      chrome.storage.local.set({ mutedTabIds: Array.from(mutedTabIds) });
-      await renderDropdownList();        // 重新渲染清單
-      await updateCurrentMuteButton();    // 更新按鈕狀態
-      // dropdownList.classList.remove("hidden");  // ← 加回來，保持清單開啟
-
-    });
-
-  // 「當前分頁靜音 / 取消靜音」按鈕
-  toggleCurrentBtn.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const newMuted = !tab.mutedInfo.muted;
-    await chrome.tabs.update(tab.id, { muted: newMuted });
-    if (newMuted) {
-      mutedTabIds.add(tab.id);
-    } else {
-      mutedTabIds.delete(tab.id);
+async function renderDropdownList() {
+  const tabs = await chrome.tabs.query({});
+  dropdownList.innerHTML = "";
+  
+  tabs.forEach(tab => {
+    const li = document.createElement("li");
+    const isMuted = isTabMuted(tab.id);
+    const iconEmoji = isMuted ? "🔇" : "🔊";
+    
+    // Emoji
+    const spn = document.createElement("span");
+    spn.textContent = iconEmoji;
+    li.appendChild(spn);
+    
+    // Favicon
+    if (tab.favIconUrl) {
+      const img = document.createElement("img");
+      img.src = tab.favIconUrl;
+      li.appendChild(img);
     }
-    chrome.storage.local.set({ mutedTabIds: Array.from(mutedTabIds) });
-    // await updateTabList();
-    await renderDropdownList();
-    await updateCurrentMuteButton();
+    
+    // 標題
+    const t = document.createElement("span");
+    t.textContent = tab.title.slice(0, 40);
+    li.appendChild(t);
+    
+    // 點擊選擇
+    li.addEventListener("click", () => {
+      selectedTabId = tab.id;
+      dropdownButton.textContent = `${iconEmoji} ${tab.title.slice(0, 20)} ▾`;
+      selectedTabInfo.textContent = `狀態：${isMuted ? "已靜音 🔇" : "播放中 🔊"}`;
+    });
+    
+    dropdownList.appendChild(li);
   });
+}
 
-  // 初始化
-  await initState();
+function updateRestoreButton() {
+  const hasMutedTabs = individualMutedTabs.size > 0 || globalMutedTabs.size > 0;
+  restoreButton.style.display = hasMutedTabs ? "block" : "none";
+}
+
+// 狀態同步相關
+async function syncStateToStorage() {
+  await chrome.storage.local.set({
+    isAllMuted,
+    mutedTabIds: Array.from(individualMutedTabs)
+  });
+}
+
+// 狀態檢查相關
+function isTabMuted(tabId) {
+  return globalMutedTabs.has(tabId) || individualMutedTabs.has(tabId);
+}
+
+// 初始化
+document.addEventListener("DOMContentLoaded", async () => {
+  // 獲取 DOM 元素
+  globalMuteToggle = document.getElementById("globalMuteToggle");
+  toggleSelectedBtn = document.getElementById("toggleSelected");
+  toggleCurrentBtn = document.getElementById("toggleCurrent");
+  dropdownButton = document.getElementById("dropdownButton");
+  dropdownList = document.getElementById("dropdownList");
+  selectedTabInfo = document.getElementById("selectedTabInfo");
+  restoreButton = document.getElementById("restoreButton");
+  
+  // 初始化狀態
+  await initializeState();
 });

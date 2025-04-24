@@ -146,7 +146,28 @@
     input:checked +.slider { background-color: #4CAF50; }
     input:checked +.slider:before { transform: translateX(20px); }
 
-  /* 兩個控制並排 */
+    /* 還原按鈕樣式 */
+    .restore-button {
+      padding: 4px 8px;
+      font-size: 12px;
+      border: none;
+      border-radius: 4px;
+      background-color: #f0f0f0;
+      color: #666;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+    .restore-button:hover {
+      background-color: #e0e0e0;
+    }
+    .restore-button .button-icon {
+      font-size: 14px;
+    }
+    
+    /* 兩個控制並排 */
     .controls-row {
       display: flex;
       align-items: center;
@@ -212,8 +233,12 @@
   <div class="card">
     <div class="header-row">
       <h2>分頁靜音控制器</h2>
-      <!-- 全域靜音開關 -->
-      <div style="display:flex; align-items:center;">
+      <!-- 全域靜音開關和還原按鈕 -->
+      <div style="display:flex; align-items:center; gap: 8px;">
+        <button id="restoreButton" class="restore-button" style="display: none;">
+          <span class="button-icon">🔄</span>
+          <span>還原全部</span>
+        </button>
         <label class="switch">
           <input type="checkbox" id="globalMuteToggle">
           <span class="slider"></span>
@@ -224,10 +249,6 @@
     
 
   <div class="button-row">
-    <!-- <button id="toggleAll" class="neutral">
-      <span class="button-icon">🔊</span>
-      <span>全部靜音</span>
-    </button> -->
     <button id="toggleSelected" class="neutral">
       <span class="button-icon">🎵</span>
       <span>選擇靜音</span>
