@@ -18,24 +18,23 @@
       --text-secondary: #6c757d;   /* 更柔和的次要文字顏色 */
       --border-color: #e9ecef;     /* 更柔和的邊框顏色 */
       
-      /* 陰影系統 - 更精緻的層次 */
+      /* 陰影系統 */
       --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
       --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.1);
       --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05), 0 4px 6px rgba(0, 0, 0, 0.1);
-      --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.05);
       
-      /* 間距系統 - 更精確的間距控制 */
+      /* 間距系統 */
       --spacing-xs: 4px;
       --spacing-sm: 8px;
       --spacing-md: 16px;
       --spacing-lg: 24px;
       
-      /* 圓角 - 更現代化的設計 */
+      /* 圓角 */
       --border-radius-sm: 4px;
       --border-radius-md: 8px;
       --border-radius-lg: 12px;
       
-      /* 字體大小 - 更清晰的層次 */
+      /* 字體大小 */
       --font-xs: 12px;
       --font-sm: 14px;
       --font-md: 16px;
@@ -48,22 +47,13 @@
       padding: var(--spacing-md);
       min-width: 350px;
       background-color: var(--background-light);
+      margin: 0;
     }
 
-    /* 卡片容器 - 增強視覺層次 */
+    /* 移除卡片容器樣式 */
     .card {
-      background: var(--background-white);
-      border-radius: var(--border-radius-lg);
-      padding: var(--spacing-lg);
-      box-shadow: var(--shadow-lg);
       max-width: 380px;
       margin: auto;
-      border: 1px solid var(--border-color);
-      transition: box-shadow 0.3s ease;
-    }
-
-    .card:hover {
-      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 0, 0, 0.05);
     }
 
     /* 標題樣式 */
@@ -72,6 +62,89 @@
       font-size: var(--font-lg);
       color: var(--text-primary);
       flex: 1;
+    }
+
+    /* 下拉選單區域樣式更新 */
+    .dropdown {
+      position: relative;
+      width: 100%;
+      background: var(--background-white);
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-sm);
+      margin-top: var(--spacing-md);
+    }
+
+    #dropdownList {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      scrollbar-gutter: stable;
+      padding-bottom: var(--spacing-sm);
+      background: var(--background-white);
+      border: 1px solid var(--border-color);
+      border-top: none;
+      border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+      box-shadow: var(--shadow-md);
+      z-index: 100;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    /* 當前分頁狀態區域更新 */
+    .tab-info {
+      margin-top: var(--spacing-md);
+      padding: var(--spacing-sm) 0;
+      color: var(--text-primary);
+      font-size: var(--font-sm);
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    .tab-info span {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+    }
+
+    /* 還原全部按鈕容器 */
+    .restore-button-container {
+      height: 24px; /* 固定高度以預留空間 */
+      margin-bottom: var(--spacing-xs);
+    }
+
+    #restoreButton {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      font-size: var(--font-sm);
+      height: 24px;
+      background-color: #9e9e9e;
+      color: white;
+      border: none;
+      border-radius: var(--border-radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+    }
+
+    #restoreButton.visible {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 0.2s ease, visibility 0s linear;
+    }
+
+    #restoreButton .button-icon {
+      font-size: var(--font-sm);
+      margin-right: 2px;
+      content: "↺";
     }
 
     /* 按鈕基礎樣式 - 更精緻的視覺效果 */
@@ -94,19 +167,37 @@
     }
 
     /* 按鈕狀態樣式 */
-    button.muted {
-      background-color: var(--button-muted);
-      color: white;
+    button.neutral {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+
+    button.neutral:hover {
+      background-color: #bbdefb;
     }
 
     button.unmuted {
-      background-color: var(--button-unmuted);
-      color: white;
+      background-color: #e8f5e9;
+      color: #388e3c;
     }
 
-    button.neutral {
-      background-color: var(--button-neutral);
-      color: white;
+    button.unmuted:hover {
+      background-color: #c8e6c9;
+    }
+
+    button.muted {
+      background-color: #ffebee;
+      color: #d32f2f;
+    }
+
+    button.muted:hover {
+      background-color: #ffcdd2;
+    }
+
+    button.muted:active, button.unmuted:active, button.neutral:active {
+      transform: translateY(2px);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+      filter: brightness(0.95);
     }
 
     /* 移除之前新增的按鈕變體樣式 */
@@ -160,24 +251,6 @@
       border-color: var(--primary-color);
     }
 
-    #dropdownList {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      max-height: 300px;
-      overflow-y: auto;
-      background: var(--background-white);
-      border: 1px solid var(--border-color);
-      border-top: none;
-      border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      z-index: 100;
-      box-shadow: var(--shadow-md);
-    }
-
     #dropdownList li {
       display: flex;
       align-items: center;
@@ -186,14 +259,16 @@
       transition: background-color 0.2s ease;
     }
 
-    #dropdownList li:hover {
-      background: var(--background-light);
+    #dropdownList li span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     #dropdownList img {
       width: 16px;
       height: 16px;
-      margin: 0 var(--spacing-sm);
+      margin: 0 var(--spacing-xs);
     }
 
     /* 開關樣式 - 更精緻的視覺效果 */
@@ -246,41 +321,19 @@
     .header-row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       margin-bottom: var(--spacing-md);
+      position: relative;
     }
 
     .header-controls {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-xs);
       align-items: flex-end;
-      min-width: 120px;
+      gap: var(--spacing-xs);
     }
 
-    #restoreButton {
-      padding: var(--spacing-xs) var(--spacing-sm);
-      font-size: var(--font-sm);
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      visibility: hidden;
-      opacity: 0;
-      transition: visibility 0s, opacity 0.2s linear;
-    }
-
-    #restoreButton.visible {
-      visibility: visible;
-      opacity: 1;
-    }
-
-    #restoreButton .button-icon {
-      font-size: var(--font-sm);
-      margin-right: 2px;
-    }
-
+    /* 全域靜音容器 */
     .global-mute-container {
       display: flex;
       align-items: center;
@@ -381,11 +434,12 @@
     /* 分頁狀態顯示樣式 */
     .tab-info {
       margin-top: var(--spacing-md);
-      padding: var(--spacing-sm);
-      background: var(--background-white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--border-radius-md);
-      box-shadow: var(--shadow-sm);
+      padding: var(--spacing-sm) 0;
+      color: var(--text-primary);
+      font-size: var(--font-sm);
+      background: transparent;
+      border: none;
+      box-shadow: none;
     }
 
     .tab-info span {
@@ -399,6 +453,13 @@
       height: 16px;
       vertical-align: middle;
     }
+
+    #dropdownButton span:not(.button-icon) {
+      max-width: 230px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -408,7 +469,7 @@
       <h2>分頁靜音控制器</h2>
       <div class="header-controls">
         <button id="restoreButton" class="restore-button">
-          <span class="button-icon">🔄</span>
+          <span class="button-icon">↺</span>
           <span>還原全部</span>
         </button>
         <div class="global-mute-container">
