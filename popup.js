@@ -96,6 +96,11 @@ async function handleCurrentTabMute() {
   
   await syncStateToStorage();
   await updateUIStates();
+  
+  // 如果當前分頁就是選中的分頁，更新下方狀態顯示
+  if (selectedTabId === tab.id) {
+    await updateSelectedTabInfo(tab);
+  }
 }
 
 async function handleSelectedTabMute() {
@@ -296,12 +301,39 @@ async function renderDropdownList() {
 async function updateSelectedTabInfo(tab) {
   // 檢查分頁的靜音狀態
   const isMuted = await checkTabMuteState(tab.id);
+  
+  // 智慧處理標題截斷
+  const maxLength = 16;
+  let displayTitle = tab.title;
+  if (tab.title.length > maxLength) {
+    // 先取得基本的截斷位置
+    let cutIndex = maxLength;
+    
+    // 向後尋找最近的空白字元（最多往後找 5 個字元）
+    const extendedText = tab.title.slice(maxLength, maxLength + 5);
+    const nextSpaceIndex = extendedText.indexOf(' ');
+    
+    // 向前尋找最近的空白字元
+    const beforeText = tab.title.slice(0, maxLength);
+    const lastSpaceIndex = beforeText.lastIndexOf(' ');
+    
+    if (nextSpaceIndex !== -1 && nextSpaceIndex < 3) {
+      // 如果後面 3 個字元內有空白，就切到那邊
+      cutIndex = maxLength + nextSpaceIndex;
+    } else if (lastSpaceIndex !== -1 && lastSpaceIndex > maxLength - 5) {
+      // 如果前面 5 個字元內有空白，就切在那邊
+      cutIndex = lastSpaceIndex;
+    }
+    
+    displayTitle = tab.title.slice(0, cutIndex) + (tab.title.length > cutIndex ? '...' : '');
+  }
+
   selectedTabInfo.innerHTML = `
     <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
       <span>狀態：</span>
       <span>${isMuted ? "已靜音 🔇" : "播放中 🔊"}</span>
       ${tab.favIconUrl ? `<img src="${tab.favIconUrl}" style="width: 16px; height: 16px;">` : ''}
-      <span style="overflow: hidden; text-overflow: ellipsis;">${tab.title.slice(0, 20)}${tab.title.length > 20 ? '...' : ''}</span>
+      <span style="overflow: hidden; text-overflow: ellipsis;">${displayTitle}</span>
     </div>
   `;
 }
