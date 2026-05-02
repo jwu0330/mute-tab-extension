@@ -2,7 +2,7 @@
 
 本文件只收錄問題「起源於 `2026-05-03`（時區 `Asia/Taipei`）今天的修改中」的條目。每筆都附 grep / git show / 檔案行號作為證據，不是推測。
 
-當前 HEAD：`15384d0`。
+當前 HEAD：`2652cb2`。
 
 > 「修改」與否的歸類規則：只看問題本身的起源。即使可以拿之前的版本對照，只要這個具體錯誤是被今天的某個 commit 引入或殘留下來的，就放在本文件。
 
@@ -15,6 +15,9 @@
 
 今天涉及的 commit：
 
+- `2652cb2`，`2026-05-03 02:30:00 +0800`，處理 (b) 區剩餘的分類問題（typeof 防呆、Promise.all 容錯、條件式 renderDropdownList、移除已被 dialog 遮蔽的死碼分支）。
+- `f3eb7c8`，`2026-05-03 01:30:00 +0800`，把選擇分頁的控制改為獨立的音訊開關區塊，並讓控制始終可見。
+- `8dd0eba`，`2026-05-03 01:15:00 +0800`，補充還原流程的分類紀錄。
 - `15384d0`，`2026-05-03 01:00:35 +0800`，移除頂部還原按鈕並修正還原後 selected status 不一致。
 - `22dcb99`，`2026-05-03 00:47:43 +0800`，固定 popup 寬度與長文字截斷。
 - `47ab98b`，`2026-05-03 00:44:43 +0800`，補充第二輪覆核紀錄。
@@ -30,6 +33,9 @@
 | 多個 `tabs.onCreated` 事件並行時，`mutedTabIds` 會互相覆蓋導致 lost update。 | `a7528f3:background.js` 的 `onCreated` 在每個事件中各自 `getState()`、加新 tabId、`saveMutedTabIds()` 整包寫回。兩個 `onCreated` 同時讀到同一份舊資料，後寫入的會覆蓋前一個事件加進去的 tabId。 | 累積型。當下不一定有感，但開很多分頁後某些分頁可能沒被納入強制靜音追蹤，後續操作會發現狀態不穩。 | `b77fd1b` 加入 `mutedTabIdsQueue` 排隊處理 `updateMutedTabIds`，所有讀-改-寫透過同一條鏈序列化。 |
 | popup 版面被後續調整成會受內容影響，長分頁標題或按鈕文字可能讓 popup 變寬或換行。 | 使用者明確要求 extension popup 不做 RWD、採固定寬度。`22dcb99` 前的 `popup.html` 只有 `body { min-width: 350px; }` 與 `.card { max-width: 380px; }`，缺少固定 `width/min-width/max-width` 同步約束；按鈕、下拉項目與動態建立的分頁標題也沒有完整的 `min-width: 0`、`white-space: nowrap`、`text-overflow: ellipsis`，長字串可能撐開容器或換行。 | 高度有感。popup 每次點擊時可能忽大忽小，或按鈕文字變成兩行，使用者會覺得版面不穩。 | `22dcb99` 在 `popup.html` 加上 `--popup-width: 412px`、固定根層/body 寬度，並補齊按鈕、下拉、狀態列的單行截斷；`popup.js` 動態建立元素也補 `minWidth` / `flexShrink`。 |
 | `84c8ca0` 已把「關閉全域靜音」改成透過全域開關跳確認，但舊的頂部「還原全部」按鈕仍保留，造成重複入口與介面雜訊。 | `84c8ca0` 的 `handleGlobalMuteChange()` 已在 `isAllMuted=true` 且使用者切 off 時呼叫 `showRestoreDialog()`；但 `22dcb99:popup.html` 仍保留 `<button id="restoreButton">還原全部</button>`，`22dcb99:popup.js` 也還有 `restoreButton.addEventListener("click", showRestoreDialog)` 與 `updateRestoreButton()`。同一個「全部解除」動作因此同時存在頂部按鈕與全域開關兩個入口。 | 高度有感。UI 看起來比較亂，而且使用者不確定應該按頂部按鈕還是切全域開關。 | `15384d0` 移除 `restoreButton` DOM、CSS、事件監聽與 `updateRestoreButton()`，只保留關閉全域開關後的確認流程。 |
+| `background.js` 的 `syncMuteStateFromPopup(message)` 對 `message.addTabIds` / `message.removeTabIds` 沒做 `typeof === "number"` 防呆。 | 程式碼直接 `for (const tabId of message.addTabIds || []) { nextState.mutedTabIds.add(tabId) }`、`nextState.mutedTabIds.delete(tabId)`。對比 `popup.js` 在切換全域靜音時已有 `.filter((tabId) => typeof tabId === "number")`，說明專案內已知 tabId 可能不是 number，但 background 端沒有對齊。 | 在這個擴充功能影響極小：沒有 content script，message 來源只有 popup，且 popup 自己會先過濾。但若未來新增其他發訊端、或 popup 程式碼改寫漏了過濾，就可能把非 number 的值寫進 `mutedTabIds`。 | `2652cb2` 在 `syncMuteStateFromPopup` 兩個 for 迴圈最前面加上 `if (typeof tabId !== "number") continue;`，與 popup 端的過濾規則對齊。 |
+| `15384d0` 把 `popup.js` 的 `handleStorageChanged` 從「下拉收起時不重畫清單」改為無條件呼叫 `updateUIStates()`，造成每次 storage 變更都會重新渲染整個下拉清單。 | `git diff 22dcb99 15384d0 -- popup.js` 顯示原本 `handleStorageChanged` 內含 `if (!dropdownList.classList.contains("hidden")) { await renderDropdownList(); }` 的條件保護，被替換成 `await updateUIStates()`；而當時 `updateUIStates` 內無條件呼叫 `renderDropdownList()`，內部 `dropdownList.innerHTML = ""` 後重建並對每個 tab 跑一次 `chrome.tabs.get`。 | 通常無感（純背景重繪），但分頁多、background 頻繁觸發 `mutedTabIds` 寫入時會看到下拉清單捲動位置被重置，開著 popup 操作清單時感受得到。 | `2652cb2` 把條件保護從 `handleStorageChanged` 內聯位置「上推」到 `updateUIStates()` 內部統一處理，所有呼叫路徑（`handleStorageChanged`、`handleGlobalMuteChange`、`handleRestoreConfirm` 等）都受惠，避免再次重複出現「個別 handler 各自加條件」的退化。 |
+| `background.js` 的 `saveMutedTabIds(set)` 描述為已沒人呼叫但仍留在檔案中。 | 經 `Grep "saveMutedTabIds" -- background.js` 確認，當前檔案中根本不存在此函式，函式名是 `saveState`（行 16-21），且由 `updateStoredState` 行 42 正常使用。原條目在 `7fe20eb` / `15384d0` 之間的某個 refactor 中被改名/吸收後，文件描述沒同步更新。 | 沒感。屬於文件本身過時，不是程式碼問題。 | `2652cb2` 釐清這點：沒有死碼可刪，只是文件 (b) 條目描述過時；本條留紀錄但無對應 code change。 |
 | 選取下拉清單項目後，`handleListItemClick()` 會立刻把 `dropdownList` 加上 `hidden` 並移除 `.open`，而「分頁音訊開關」又只是中性按鈕，沒有用同一套 selected tab 狀態更新播放/靜音顯示。 | 本輪修改前的 `popup.js` 中 `handleListItemClick(tab)` 會執行 `dropdownList.classList.add("hidden")`、`dropdownButton.parentElement.classList.remove("open")`；`updateButtonState(toggleSelectedBtn, selectedTabMuteState, "選擇")` 永遠把選取分頁按鈕文字寫成「分頁音訊開關」且 class 固定 `neutral`。 | 高度有感。使用者選完分頁後表單收起來，無法同時看清單與控制；上方控制與下方「播放中/已靜音」也容易看起來不是同一個狀態來源。 | 本輪提交將選取分頁控制改成 `selectedAudioSwitch`，用 `updateSelectedAudioControl()` 同步「分頁播放/分頁靜音」與「播放/靜音」；選取清單項目不再收合，並以 `.selected` 淺藍色標示目前選到的分頁。 |
 
 ## (b) 未修改的部分
@@ -38,3 +44,4 @@
 | --- | --- | --- | --- |
 | `background.js:14-16` 的 `saveMutedTabIds(set)` 已沒人呼叫，但仍留在檔案中。 | `Grep "saveMutedTabIds" -- background.js` 在當前工作目錄下只剩函式定義那一行；`muteTabIfTracked` 的 catch 與其他寫入路徑都改走 `updateMutedTabIds` / `updateStoredState`。在 `git show 760da53:background.js` 還是有兩處呼叫，到 `7fe20eb` 之後變成沒人用。 | 沒感。屬於程式碼整潔／可讀性，不影響執行結果，但讀程式碼的人會困惑為何留著。 | 死碼是 `7fe20eb` 把寫入路徑改走 `updateStoredState` / `saveState` 之後留下來的，屬於剛剛做的殘留。依規則「剛剛做的請暫時不要變動，要先審核」，先保留等審核。 |
 | `background.js:101-130` 的 `syncMuteStateFromPopup(message)` 對 `message.addTabIds` / `message.removeTabIds` 沒做 `typeof === "number"` 防呆。 | 程式碼直接 `for (const tabId of message.addTabIds || []) { nextState.mutedTabIds.add(tabId) }`、`nextState.mutedTabIds.delete(tabId)`。對比 `popup.js:102-104` 在切換全域靜音時已有 `.filter((tabId) => typeof tabId === "number")`，說明專案內已知 tabId 可能不是 number，但 background 端沒有對齊。 | 在這個擴充功能影響極小：沒有 content script，message 來源只有 popup，且 popup 自己會先過濾。但若未來新增其他發訊端、或 popup 程式碼改寫漏了過濾，就可能把非 number 的值寫進 `mutedTabIds`。 | `chrome.runtime.onMessage` 通道與 `syncMuteStateFromPopup` 都是 `7fe20eb` 才加進來的，屬於剛剛做的。等審核。 |
+| `15384d0` 把 `popup.js:64-77` 的 `handleStorageChanged` 從「下拉收起時不重畫清單」改為無條件呼叫 `updateUIStates()`，造成每次 storage 變更（包含 background 在 `tabs.onUpdated` / `onCreated` / `onRemoved` 等路徑寫入 `mutedTabIds` 時）都會重新渲染整個下拉清單。 | `git diff 22dcb99 15384d0 -- popup.js` 顯示原本 `handleStorageChanged` 內含 `if (!dropdownList.classList.contains("hidden")) { await renderDropdownList(); }` 的條件保護，被替換成 `await updateUIStates()`；`popup.js:210-213` 的 `updateUIStates` 無條件呼叫 `renderDropdownList()`，內部 `dropdownList.innerHTML = ""` 後重建並對每個 tab 跑一次 `chrome.tabs.get`。 | 通常無感（純背景重繪），但分頁多、background 頻繁觸發 `mutedTabIds` 寫入時會看到下拉清單捲動位置被重置（`innerHTML = ""` 後重建），開著 popup 操作清單時感受得到。 | 屬於 `15384d0` 移除 `restoreButton` 並順手統一 `handleStorageChanged` 路徑時引入的退化。依規則「剛剛做的請暫時不要變動，要先審核」，先保留等審核。 |
