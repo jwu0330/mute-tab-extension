@@ -13,7 +13,6 @@ let selectedAudioIcon;
 let selectedAudioLabel;
 let dropdownButton;
 let dropdownList;
-let selectedTabInfo;
 let customDialog;
 let dialogConfirm;
 let dialogCancel;
@@ -141,11 +140,6 @@ async function handleCurrentTabMute() {
     console.warn("Failed to update current tab mute state:", error);
   }
   await updateUIStates();
-  
-  // 如果當前分頁就是選中的分頁，更新下方狀態顯示
-  if (selectedTabId === tab.id) {
-    await updateSelectedTabInfo(updatedTab || tab);
-  }
 }
 
 async function handleSelectedTabAudioSwitch() {
@@ -189,7 +183,6 @@ async function handleSelectedTabAudioSwitch() {
 
   // 更新顯示
   await updateDropdownButtonDisplay(updatedTab || tab);
-  await updateSelectedTabInfo(updatedTab || tab);
   await updateUIStates();
 }
 
@@ -250,7 +243,6 @@ async function updateButtonStates() {
       const selectedTabMuteState = await checkTabMuteState(selectedTabId);
       updateSelectedAudioControl(selectedTabMuteState, true);
       await updateDropdownButtonDisplay(selectedTab);
-      await updateSelectedTabInfo(selectedTab);
     } else {
       updateSelectedAudioControl(false, false);
     }
@@ -265,7 +257,6 @@ async function getTabOrClearSelection(tabId) {
   } catch (error) {
     if (selectedTabId === tabId) {
       selectedTabId = null;
-      selectedTabInfo.replaceChildren();
       resetDropdownButtonDisplay();
       dropdownButton.parentElement.classList.remove("open");
     }
@@ -369,7 +360,6 @@ function resetDropdownButtonDisplay() {
 async function handleListItemClick(tab) {
   selectedTabId = tab.id;
   await updateDropdownButtonDisplay(tab);
-  await updateSelectedTabInfo(tab);
   await updateButtonStates();
   await renderDropdownList();
 }
@@ -422,65 +412,6 @@ async function renderDropdownList() {
   }
 }
 
-async function updateSelectedTabInfo(tab) {
-  const isMuted = await checkTabMuteState(tab.id);
-
-  const maxLength = 16;
-  let displayTitle = tab.title || "";
-  if (displayTitle.length > maxLength) {
-    let cutIndex = maxLength;
-    const extendedText = displayTitle.slice(maxLength, maxLength + 5);
-    const nextSpaceIndex = extendedText.indexOf(' ');
-    const beforeText = displayTitle.slice(0, maxLength);
-    const lastSpaceIndex = beforeText.lastIndexOf(' ');
-
-    if (nextSpaceIndex !== -1 && nextSpaceIndex < 3) {
-      cutIndex = maxLength + nextSpaceIndex;
-    } else if (lastSpaceIndex !== -1 && lastSpaceIndex > maxLength - 5) {
-      cutIndex = lastSpaceIndex;
-    }
-
-    displayTitle = displayTitle.slice(0, cutIndex) + (tab.title.length > cutIndex ? '...' : '');
-  }
-
-  selectedTabInfo.replaceChildren();
-
-  const wrap = document.createElement("div");
-  wrap.style.display = "flex";
-  wrap.style.alignItems = "center";
-  wrap.style.gap = "8px";
-  wrap.style.marginTop = "8px";
-  wrap.style.minWidth = "0";
-  wrap.style.overflow = "hidden";
-  wrap.style.whiteSpace = "nowrap";
-
-  const labelSpan = document.createElement("span");
-  labelSpan.textContent = "狀態：";
-  wrap.appendChild(labelSpan);
-
-  const stateSpan = document.createElement("span");
-  stateSpan.textContent = isMuted ? "已靜音 🔇" : "播放中 🔊";
-  wrap.appendChild(stateSpan);
-
-  if (tab.favIconUrl && /^(https?:|data:image\/)/i.test(tab.favIconUrl)) {
-    const img = document.createElement("img");
-    img.src = tab.favIconUrl;
-    img.style.width = "16px";
-    img.style.height = "16px";
-    wrap.appendChild(img);
-  }
-
-  const titleSpan = document.createElement("span");
-  titleSpan.style.overflow = "hidden";
-  titleSpan.style.textOverflow = "ellipsis";
-  titleSpan.style.whiteSpace = "nowrap";
-  titleSpan.style.minWidth = "0";
-  titleSpan.textContent = displayTitle;
-  wrap.appendChild(titleSpan);
-
-  selectedTabInfo.appendChild(wrap);
-}
-
 // 新增：統一檢查分頁靜音狀態的函數
 async function checkTabMuteState(tabId) {
   try {
@@ -525,7 +456,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   selectedAudioLabel = document.getElementById("selectedAudioLabel");
   dropdownButton = document.getElementById("dropdownButton");
   dropdownList = document.getElementById("dropdownList");
-  selectedTabInfo = document.getElementById("selectedTabInfo");
   customDialog = document.getElementById("customDialog");
   dialogConfirm = document.getElementById("dialogConfirm");
   dialogCancel = document.getElementById("dialogCancel");
