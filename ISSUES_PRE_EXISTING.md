@@ -2,7 +2,7 @@
 
 本文件只收錄問題「起源於 `2026-05-03` 之前」的條目（時區 `Asia/Taipei`）。每筆都附 grep / git show / 檔案行號作為證據，不是推測。
 
-當前 HEAD：`2652cb2`。
+當前 HEAD：`5336cf7`。
 
 > 「修改」與否的歸類規則：只看問題本身的起源。即使該問題是在今天才被驗證、或修正動作是在今天完成，只要起源在今天以前就放在本文件。
 
@@ -38,10 +38,9 @@
 
 ## (b) 未更改的部分
 
+> **目前無未修改的條目。** 原本列於本區的 5 條（兩處 `Promise.all` fail-fast、`updateUIStates` 無條件 `renderDropdownList`、`handleRestoreConfirm` 缺型別過濾與 per-item catch、兩個單頁 handler 缺 try/catch、單頁解除順帶關全域的 dead branch）已全數於 `2652cb2` 處理完畢，相應修正紀錄已搬到上方 (a) 區。為符合「未修改不應再殘留」的最新使用者規則，本區清空；歷史快照透過 git history（`git show 475dddd:ISSUES_PRE_EXISTING.md`）仍可追溯。
+>
+> 表格保留標題列以利日後新問題追加。
+
 | 發生什麼問題 | 找證據的方式 | 使用者的感受 | 為什麼這輪沒改 |
 | --- | --- | --- | --- |
-| `popup.js:109` 與 `popup.js:208` 的 `Promise.all(tabIds.map(... chrome.tabs.update ...))` 在任一分頁正好被關閉時 fail-fast，導致同個 handler 後面的 `await updateUIStates()` 被略過。 | 失敗模式從 `946e262:popup.js` 的 `for (const tab of tabs) { await chrome.tabs.update(...) }` 時代就在；`a7528f3` 把它改為 `Promise.all(...)`，仍然在任一個 reject 時整批 reject。`background.js:144-149` 的 `reconcileTabsOnStartup` 已示範 `chrome.tabs.update(...).catch(() => {})` 的逐個容錯寫法，可以對照。 | 影響極小。`7fe20eb` 加的 `chrome.storage.onChanged` listener 在 background 發 `onRemoved` 後會把 popup 的 `individualMutedTabs` 與按鈕狀態收斂回正確值，使用者最差只看到極短暫的 UI 不一致。 | 失敗模式雖然之前做的就有，但 `Promise.all` 那兩行是 `a7528f3` 引入的，要改就會動到「剛剛做的」程式碼線；目前實際影響已被 listener 收斂，先不動。 |
-| `popup.js:215-220` 的 `updateUIStates()` 不論下拉是否展開都呼叫 `renderDropdownList()`，每次都跑 N 次 `chrome.tabs.get`。 | `git show 946e262:popup.js` 的 `updateUIStates` 寫法相同（無條件呼叫 `renderDropdownList`）。對比 `7fe20eb:popup.js:80-82` 的 `handleStorageChanged` 已經有 `if (!dropdownList.classList.contains("hidden")) { ... }` 條件保護，顯示專案內已經有正確的寫法可對齊。 | 沒感。屬於效能議題，不影響正確性，分頁多時略有延遲但通常感受不到。 | 修正會涉及多個 handler 的呼叫慣例調整；不是正確性問題，且影響很小，這輪先不動。 |
-| `popup.js:201-204` 的 `handleRestoreConfirm` 對 `chrome.tabs.query({})` 回傳的每個 tab 直接呼叫 `chrome.tabs.update(tab.id, ...)`，未過濾 `typeof tab.id === "number"` 也未個別 catch；任一特殊分頁（dev tools、prerender 中、被 discard 的特殊狀態）會讓 `Promise.all` fail-fast，後面的 `await updateUIStates()` 被略過。 | `Grep "chrome.tabs.update" -- popup.js` 顯示 `handleRestoreConfirm` 內 `await Promise.all(tabs.map((tab) => chrome.tabs.update(tab.id, { muted: false })))` 沒做型別過濾與 per-item catch。對照 `background.js:141-145` 的 `reconcileTabsOnStartup` 已有 `typeof tab.id === "number" ? chrome.tabs.update(tab.id, { muted: true }).catch(() => {}) : Promise.resolve()` 的正確寫法。`git show 946e262:popup.js` 的還原流程也沒有過濾，起源於今天以前。 | 高度有感。按「確定還原全部」後若有任一特殊分頁，按鈕、下拉、狀態列不會收斂到「全部解除」的視覺，使用者會以為還原失敗、再按一次；但 storage 已寫入 `clearAll`，前後狀態不一致很困惑。 | 本輪只盤點問題不修改。 |
-| `popup.js:137` 與 `popup.js:173` 的 `await chrome.tabs.update(...)` 沒包 try/catch，分頁在 await 期間被關閉就會丟出未處理錯誤、中斷後續 `updateUIStates()` 與 `updateSelectedTabInfo()`。 | `Grep -n "chrome.tabs.update" -- popup.js` 在 `handleCurrentTabMute` 與 `handleSelectedTabMute` 兩個 handler 內各有一處沒包 try/catch。`git show 946e262:popup.js` 同位置一樣沒 try/catch — 起源於今天以前。 | 中度有感。按下按鈕的瞬間若分頁正好關閉，按鈕視覺、下拉狀態、狀態列會停在舊值，要再開 popup 才會收斂。`chrome.storage.onChanged` 雖會把 `mutedTabIds` 收斂回來，但 `selectedTabId` 仍指向已關閉的 tab，下次操作仍會誤觸 `getTabOrClearSelection`。 | 本輪只盤點問題不修改。 |
-| `popup.js:121-136` 的 `handleCurrentTabMute`（與 `popup.js:158-172` 的 `handleSelectedTabMute`）在「解除單頁靜音時順帶把全域靜音關閉」的分支只送 `removeTabIds: [tab.id]` 與 `isAllMuted: false`，沒有清掉其他原本被全域靜音納入追蹤的殘留 tabId。 | `Grep -n "isAllMuted = false" -- popup.js` 顯示這兩個 handler 內各自把 `isAllMuted = false`、`globalMuteToggle.checked = false`，但 `individualMutedTabs` 只 `delete(tab.id)`，沒有 clear。對照 `background.js:177-193` 的 `onUpdated` 監聽，殘留的 tabId 在 `isAllMuted=false` 之後仍會被當「個別追蹤」處理。`git show 946e262:popup.js` 已是相同邏輯 — 起源於今天以前。 | 目前無感。`84c8ca0` 已用「全域開時改顯示確認框」遮蔽了這條 code path 的入口，使用者實際上走不到；但程式碼仍在，只要未來改動入口判斷或某個 race 繞過 dialog，這個 bug 會立刻復活，是潛伏陷阱。 | 本輪只盤點問題不修改。 |

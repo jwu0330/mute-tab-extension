@@ -2,7 +2,7 @@
 
 本文件只收錄問題「起源於 `2026-05-03`（時區 `Asia/Taipei`）今天的修改中」的條目。每筆都附 grep / git show / 檔案行號作為證據，不是推測。
 
-當前 HEAD：`39a349b`。
+當前 HEAD：`5336cf7`。
 
 > 「修改」與否的歸類規則：只看問題本身的起源。即使可以拿之前的版本對照，只要這個具體錯誤是被今天的某個 commit 引入或殘留下來的，就放在本文件。
 
@@ -15,6 +15,8 @@
 
 今天涉及的 commit：
 
+- `5336cf7`，`2026-05-03 04:15:00 +0800`，把 `#dropdownButton` 改為始終呈現選取藍色，並徹底移除下方重複的 `selectedTabInfo` 狀態列。
+- `305313b`，`2026-05-03 04:00:00 +0800`，bump 擴充功能版本到 3.7。
 - `39a349b`，`2026-05-03 03:30:00 +0800`，清理 dropdown button 的過時 CSS / markup（移除被 grid 取代的 max-width 規則、把預設 wrapper 改為 div、刪掉被覆寫的 padding-bottom）。
 - `0827bca`，`2026-05-03 03:00:00 +0800`，精簡選取分頁音訊控制、固定下拉捲軸空間與箭頭欄位。
 - `df62590`，`2026-05-03 02:35:00 +0800`，把上一輪修正紀錄補進兩份 ISSUES 文件 (a) 區。
@@ -46,11 +48,13 @@
 | `0827bca` 的 `popup.html` 把 dropdown 的預設 wrapper 寫成 `<span class="dropdown-button-content">`，但 `popup.js` 動態 render 時建立的是 `<div class="dropdown-button-content">`；CSS rule `display: grid` 在 inline-level span 上會變 inline-grid，與 div 的 grid container 行為不一致。 | `f3eb7c8`/`0827bca` 的 popup.html 行 662 預設 span，`updateDropdownButtonDisplay()`（`popup.js:306`）卻用 `document.createElement("div")`。第一次 popup 開啟（尚未走 render path）與選擇分頁後使用兩種 wrapper。 | 視覺差異不大，但 grid item 的對齊基準在某些瀏覽器版本可能略有不同；屬於潛伏不一致而非顯性 bug。 | `39a349b` 把 popup.html 的預設 wrapper 也改為 `<div class="dropdown-button-content">`，與 dynamic render 一致，避免日後若有人對 grid container 加新規則時兩邊不同步。 |
 | `0827bca` 的 `#dropdownList` 同時宣告 `padding-bottom: var(--spacing-sm);`（行 109）與 `padding: 0;`（行 117），後者覆寫前者，前者形同 dead declaration。 | popup.html 同一個規則塊內兩個 padding 宣告。 | 沒感。屬於程式碼整潔。 | `39a349b` 移除被覆寫的 `padding-bottom`，避免日後讀者誤以為清單有底部間距而依此調整其他元素。 |
 | ISSUES_TODAY.md (b) 區的 3 條歷史條目（`saveMutedTabIds` 描述過時、`syncMuteStateFromPopup` typeof 防呆、`handleStorageChanged` 退化）對應修正都已寫進 (a) 區，但 (b) 條目仍標記「等審核」。 | 對照 (a) 區 `2652cb2` 條目即可確認三條都已處理。依規則「不要覆蓋舊條目」，(b) 條目作為歷史快照保留不刪。 | 沒感。屬於文件層的釐清。 | `39a349b`（本條紀錄）僅在 (a) 區補一條總結，說明 (b) 區的歷史狀態已全數對應到 (a) 的修正，未來新進讀者不會誤以為仍有未處理項目。 |
+| 上方 `#dropdownButton`（顯示目前選取分頁的橫條）與下方 `#selectedTabInfo` 狀態列同時呈現「目前選到哪個分頁 + 靜音/播放」資訊，是兩個來源、重複表達同一件事；同時 `#dropdownButton` 預設用白底，使用者選完分頁後上面那條看起來不像「被選取」，下方狀態列才看起來是 selected。 | `popup.html` 行 312-329（`5336cf7` 前）`#dropdownButton { background: var(--background-white); }`；同時 `<div id="selectedTabInfo" class="tab-info">` 與 `updateSelectedTabInfo()` 又另外輸出「狀態：已靜音 🔇 / 播放中 🔊 + 標題」。`popup.js` 在 `handleListItemClick` / `updateButtonStates` / `handleCurrentTabMute` / `handleSelectedTabAudioSwitch` / `getTabOrClearSelection` 多處呼叫 `updateSelectedTabInfo` 或 `selectedTabInfo.replaceChildren()`。起源於 `f3eb7c8` 把選取分頁控制改為左側區塊後，下方的狀態列就成了冗餘鏡像。 | 高度有感（使用者實際反映：「兩個地方是重複的」）。視覺與認知都有負擔，介面也比實際需要的更高。 | `5336cf7` 同時做了兩件事：(1) `#dropdownButton` 永遠採用 `.selected` 同一組藍色（`#e3f2fd` 底 / `#1976d2` 字），不論是否已選取分頁都看得出這條 bar 是「目前選取的代表」；hover 改為 `#bbdefb`，展開時又回到 `#e3f2fd` 避免和綠色展開邊框打架。(2) 把 `#selectedTabInfo`、`updateSelectedTabInfo()`、所有呼叫點與 `.tab-info` CSS 一併移除，避免再有地方誤回來呼叫已不存在的下方狀態列。下拉清單內 `.selected` 的藍色（行 438-441）保持不動，與上方 bar 同色，使用者點選後 bar 與 list 中的高亮自然同步。 |
 
 ## (b) 未修改的部分
 
+> **目前無未修改的條目。** 原本列於本區的 3 條（`saveMutedTabIds` 描述過時、`syncMuteStateFromPopup` typeof 防呆、`15384d0` 的 `handleStorageChanged` 退化）已全數於 `2652cb2` 之後處理完畢，相應修正紀錄已搬到上方 (a) 區。為符合「未修改不應再殘留」的最新使用者規則，本區清空；歷史快照透過 git history（`git show 475dddd:ISSUES_TODAY.md`）仍可追溯。
+>
+> 表格保留標題列以利日後新問題追加。
+
 | 發生什麼問題 | 找證據的方式 | 使用者的感受 | 為什麼還沒處理 |
 | --- | --- | --- | --- |
-| `background.js:14-16` 的 `saveMutedTabIds(set)` 已沒人呼叫，但仍留在檔案中。 | `Grep "saveMutedTabIds" -- background.js` 在當前工作目錄下只剩函式定義那一行；`muteTabIfTracked` 的 catch 與其他寫入路徑都改走 `updateMutedTabIds` / `updateStoredState`。在 `git show 760da53:background.js` 還是有兩處呼叫，到 `7fe20eb` 之後變成沒人用。 | 沒感。屬於程式碼整潔／可讀性，不影響執行結果，但讀程式碼的人會困惑為何留著。 | 死碼是 `7fe20eb` 把寫入路徑改走 `updateStoredState` / `saveState` 之後留下來的，屬於剛剛做的殘留。依規則「剛剛做的請暫時不要變動，要先審核」，先保留等審核。 |
-| `background.js:101-130` 的 `syncMuteStateFromPopup(message)` 對 `message.addTabIds` / `message.removeTabIds` 沒做 `typeof === "number"` 防呆。 | 程式碼直接 `for (const tabId of message.addTabIds || []) { nextState.mutedTabIds.add(tabId) }`、`nextState.mutedTabIds.delete(tabId)`。對比 `popup.js:102-104` 在切換全域靜音時已有 `.filter((tabId) => typeof tabId === "number")`，說明專案內已知 tabId 可能不是 number，但 background 端沒有對齊。 | 在這個擴充功能影響極小：沒有 content script，message 來源只有 popup，且 popup 自己會先過濾。但若未來新增其他發訊端、或 popup 程式碼改寫漏了過濾，就可能把非 number 的值寫進 `mutedTabIds`。 | `chrome.runtime.onMessage` 通道與 `syncMuteStateFromPopup` 都是 `7fe20eb` 才加進來的，屬於剛剛做的。等審核。 |
-| `15384d0` 把 `popup.js:64-77` 的 `handleStorageChanged` 從「下拉收起時不重畫清單」改為無條件呼叫 `updateUIStates()`，造成每次 storage 變更（包含 background 在 `tabs.onUpdated` / `onCreated` / `onRemoved` 等路徑寫入 `mutedTabIds` 時）都會重新渲染整個下拉清單。 | `git diff 22dcb99 15384d0 -- popup.js` 顯示原本 `handleStorageChanged` 內含 `if (!dropdownList.classList.contains("hidden")) { await renderDropdownList(); }` 的條件保護，被替換成 `await updateUIStates()`；`popup.js:210-213` 的 `updateUIStates` 無條件呼叫 `renderDropdownList()`，內部 `dropdownList.innerHTML = ""` 後重建並對每個 tab 跑一次 `chrome.tabs.get`。 | 通常無感（純背景重繪），但分頁多、background 頻繁觸發 `mutedTabIds` 寫入時會看到下拉清單捲動位置被重置（`innerHTML = ""` 後重建），開著 popup 操作清單時感受得到。 | 屬於 `15384d0` 移除 `restoreButton` 並順手統一 `handleStorageChanged` 路徑時引入的退化。依規則「剛剛做的請暫時不要變動，要先審核」，先保留等審核。 |
