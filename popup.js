@@ -37,6 +37,7 @@ async function loadStoredState() {
   if (typeof storage.isAllMuted !== "undefined") {
     isAllMuted = storage.isAllMuted;
   }
+  globalMuteToggle.checked = isAllMuted;
 }
 
 function setupEventListeners() {
@@ -60,10 +61,13 @@ async function handleGlobalMuteChange() {
   const tabs = await chrome.tabs.query({});
 
   if (isAllMuted) {
-    await Promise.all(tabs.map(async (tab) => {
-      await chrome.tabs.update(tab.id, { muted: true });
+    tabs.forEach((tab) => {
       individualMutedTabs.add(tab.id);
-    }));
+    });
+    await syncStateToStorage();
+    await Promise.all(tabs.map((tab) =>
+      chrome.tabs.update(tab.id, { muted: true })
+    ));
   } else {
     // 關閉全域靜音時必須清空強制靜音清單，否則 background 會立即把分頁打回靜音
     individualMutedTabs.clear();
@@ -73,7 +77,6 @@ async function handleGlobalMuteChange() {
     ));
   }
 
-  await syncStateToStorage();
   await updateUIStates();
 }
 
@@ -82,7 +85,6 @@ async function handleCurrentTabMute() {
   if (!tab) return;
   
   const newMuted = !tab.mutedInfo?.muted;
-  await chrome.tabs.update(tab.id, { muted: newMuted });
   
   if (newMuted) {
     individualMutedTabs.add(tab.id);
@@ -96,37 +98,39 @@ async function handleCurrentTabMute() {
   }
   
   await syncStateToStorage();
+  const updatedTab = await chrome.tabs.update(tab.id, { muted: newMuted });
   await updateUIStates();
   
   // 如果當前分頁就是選中的分頁，更新下方狀態顯示
   if (selectedTabId === tab.id) {
-    await updateSelectedTabInfo(tab);
+    await updateSelectedTabInfo(updatedTab || tab);
   }
 }
 
 async function handleSelectedTabMute() {
   if (!selectedTabId) return;
   
-  if (isAllMuted) {
-    isAllMuted = false;
-    globalMuteToggle.checked = false;
-  }
-  
-  const tab = await chrome.tabs.get(selectedTabId);
+  const tab = await getTabOrClearSelection(selectedTabId);
+  if (!tab) return;
+
   const newMuted = !tab.mutedInfo?.muted;
-  await chrome.tabs.update(selectedTabId, { muted: newMuted });
   
   if (newMuted) {
     individualMutedTabs.add(selectedTabId);
   } else {
     individualMutedTabs.delete(selectedTabId);
+    if (isAllMuted) {
+      isAllMuted = false;
+      globalMuteToggle.checked = false;
+    }
   }
   
   await syncStateToStorage();
+  const updatedTab = await chrome.tabs.update(selectedTabId, { muted: newMuted });
   
   // 更新顯示
-  await updateDropdownButtonDisplay(tab);
-  await updateSelectedTabInfo(tab);
+  await updateDropdownButtonDisplay(updatedTab || tab);
+  await updateSelectedTabInfo(updatedTab || tab);
   await updateUIStates();
 }
 
@@ -181,8 +185,24 @@ async function updateButtonStates() {
     updateButtonState(toggleSelectedBtn, selectedTabMuteState, "選擇");
     
     // 更新下拉按鈕顯示
-    const selectedTab = await chrome.tabs.get(selectedTabId);
-    updateDropdownButtonDisplay(selectedTab);
+    const selectedTab = await getTabOrClearSelection(selectedTabId);
+    if (selectedTab) {
+      updateDropdownButtonDisplay(selectedTab);
+    }
+  }
+}
+
+async function getTabOrClearSelection(tabId) {
+  try {
+    return await chrome.tabs.get(tabId);
+  } catch (error) {
+    if (selectedTabId === tabId) {
+      selectedTabId = null;
+      selectedTabInfo.replaceChildren();
+      dropdownButton.textContent = "選擇分頁 ▾";
+    }
+    console.warn("Selected tab is no longer available:", error);
+    return null;
   }
 }
 
