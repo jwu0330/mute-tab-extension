@@ -50,11 +50,12 @@ function setupEventListeners() {
   globalMuteToggle.addEventListener("change", handleGlobalMuteChange);
   selectedAudioSwitch.addEventListener("click", handleSelectedTabAudioSwitch);
   toggleCurrentBtn.addEventListener("click", handleCurrentTabMute);
-  dropdownButton.addEventListener("click", () => {
+  dropdownButton.addEventListener("click", async () => {
     const isHidden = dropdownList.classList.toggle("hidden");
     dropdownButton.parentElement.classList.toggle("open", !isHidden);
     if (!isHidden) {
-      renderDropdownList(); // 重新渲染列表以確保狀態最新
+      // await 而非 fire-and-forget：避免展開時的 render 與後續 handler 觸發的 render 交錯。
+      await renderDropdownList();
     }
   });
   dialogConfirm.addEventListener("click", handleRestoreConfirm);
@@ -365,29 +366,34 @@ async function handleListItemClick(tab) {
 }
 
 // 更新渲染下拉列表
+//
+// 原子渲染：先把所有外部資料（tabs、靜音狀態）一次抓齊，再純同步建好 DocumentFragment，
+// 最後用一次 replaceChildren 把整批掛上去。整個函式只有 chrome.tabs.query 一個 await 邊界，
+// DOM 變更區段沒有 await，因此即使兩個 renderDropdownList 並發進行，也不會交錯 append；
+// 最後一個 replaceChildren 會整批取代而非與前一輪殘留交織，徹底消除「同一 tab 出現兩次、
+// 兩條 .selected 同時亮藍」的競態症狀。也因為改用 tab.mutedInfo 直接判讀，不再為每個 tab
+// 多打一次 chrome.tabs.get，順帶降低 await 邊界數量與 N+1 取資料成本。
 async function renderDropdownList() {
   const tabs = await chrome.tabs.query({});
-  dropdownList.innerHTML = "";
-  
+
+  const fragment = document.createDocumentFragment();
   for (const tab of tabs) {
-    const li = document.createElement("li");
-    const isMuted = await checkTabMuteState(tab.id);
+    const isMuted = !!tab.mutedInfo?.muted || individualMutedTabs.has(tab.id) || isAllMuted;
     const iconEmoji = isMuted ? "🔇" : "🔊";
+
+    const li = document.createElement("li");
     li.classList.toggle("selected", tab.id === selectedTabId);
-    
     li.style.display = "flex";
     li.style.alignItems = "center";
     li.style.gap = "4px";
     li.style.padding = "4px 8px";
     li.style.cursor = "pointer";
-    
-    // 音訊圖示
+
     const audioIcon = document.createElement("span");
     audioIcon.textContent = iconEmoji;
     audioIcon.style.flexShrink = "0";
     li.appendChild(audioIcon);
-    
-    // 分頁圖示
+
     if (tab.favIconUrl && /^(https?:|data:image\/)/i.test(tab.favIconUrl)) {
       const img = document.createElement("img");
       img.src = tab.favIconUrl;
@@ -397,7 +403,6 @@ async function renderDropdownList() {
       li.appendChild(img);
     }
 
-    // 分頁標題
     const titleSpan = document.createElement("span");
     titleSpan.style.overflow = "hidden";
     titleSpan.style.textOverflow = "ellipsis";
@@ -406,10 +411,12 @@ async function renderDropdownList() {
     titleSpan.style.minWidth = "0";
     titleSpan.textContent = tab.title || "";
     li.appendChild(titleSpan);
-    
+
     li.addEventListener("click", () => handleListItemClick(tab));
-    dropdownList.appendChild(li);
+    fragment.appendChild(li);
   }
+
+  dropdownList.replaceChildren(fragment);
 }
 
 // 新增：統一檢查分頁靜音狀態的函數
