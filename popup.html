@@ -39,6 +39,9 @@
       --font-sm: 14px;
       --font-md: 16px;
       --font-lg: 20px;
+
+      /* 刻意採固定寬度且不做 RWD，避免 popup 因內容長短在每次點擊時忽大忽小。 */
+      --popup-width: 412px;
     }
 
     /* 基礎樣式 */
@@ -46,12 +49,17 @@
       background: transparent;
       border-radius: var(--border-radius-lg);
       overflow: hidden;
+      width: var(--popup-width);
+      min-width: var(--popup-width);
+      max-width: var(--popup-width);
     }
 
     body {
       font-family: Arial, sans-serif;
       padding: var(--spacing-md);
-      min-width: 350px;
+      width: var(--popup-width);
+      min-width: var(--popup-width);
+      max-width: var(--popup-width);
       background-color: var(--background-light);
       border-radius: var(--border-radius-lg);
       box-sizing: border-box;
@@ -63,8 +71,11 @@
 
     /* 移除卡片容器樣式 */
     .card {
-      max-width: 380px;
+      width: 100%;
+      max-width: none;
+      box-sizing: border-box;
       margin: auto;
+      overflow: hidden;
     }
 
     /* 標題樣式 */
@@ -73,6 +84,10 @@
       font-size: var(--font-lg);
       color: var(--text-primary);
       flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       cursor: default;
     }
 
@@ -114,12 +129,15 @@
       border: none;
       box-shadow: none;
       cursor: default;
+      overflow: hidden;
     }
 
     .tab-info span {
       display: inline-flex;
       align-items: center;
       gap: var(--spacing-xs);
+      min-width: 0;
+      white-space: nowrap;
     }
 
     /* 還原全部按鈕容器 */
@@ -141,6 +159,9 @@
       align-items: center;
       justify-content: center;
       gap: 4px;
+      max-width: 112px;
+      overflow: hidden;
+      white-space: nowrap;
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.2s ease, visibility 0s linear 0.2s;
@@ -170,6 +191,9 @@
       transition: all 0.2s ease;
       font-size: var(--font-md);
       box-shadow: var(--shadow-sm);
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
     }
 
     .btn:hover {
@@ -229,16 +253,29 @@
       display: flex;
       gap: var(--spacing-sm);
       margin-bottom: var(--spacing-md);
+      width: 100%;
+      overflow: hidden;
     }
 
     .button-row button {
       flex: 1;
+      min-width: 0;
+      width: calc((100% - var(--spacing-sm)) / 2);
     }
 
     /* 圖示樣式 */
     .button-icon {
       margin-right: var(--spacing-sm);
       font-size: var(--font-md);
+      flex-shrink: 0;
+    }
+
+    .btn span:not(.button-icon),
+    #restoreButton span:not(.button-icon) {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     #dropdownButton {
@@ -256,6 +293,9 @@
       align-items: center;
       justify-content: space-between;
       box-sizing: border-box;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
     }
 
     #dropdownButton:hover {
@@ -281,9 +321,15 @@
       padding: var(--spacing-xs) var(--spacing-sm);
       cursor: pointer;
       transition: background-color 0.2s ease;
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      overflow: hidden;
+      white-space: nowrap;
     }
 
     #dropdownList li span {
+      min-width: 0;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -348,6 +394,9 @@
       align-items: flex-start;
       margin-bottom: var(--spacing-md);
       position: relative;
+      width: 100%;
+      min-width: 0;
+      overflow: hidden;
     }
 
     .header-controls {
@@ -355,6 +404,8 @@
       flex-direction: column;
       align-items: flex-end;
       gap: var(--spacing-xs);
+      flex-shrink: 0;
+      max-width: 144px;
     }
 
     /* 全域靜音容器 */
@@ -362,6 +413,7 @@
       display: flex;
       align-items: center;
       gap: var(--spacing-sm);
+      white-space: nowrap;
     }
 
     /* 開關標籤 */
@@ -376,6 +428,7 @@
       width: 100%;
       margin-top: var(--spacing-md);
       position: relative;
+      overflow: hidden;
     }
 
     /* 狀態指示器 */

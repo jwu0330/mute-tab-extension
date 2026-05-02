@@ -282,11 +282,13 @@ async function updateDropdownButtonDisplay(tab) {
   buttonContent.style.display = "flex";
   buttonContent.style.alignItems = "center";
   buttonContent.style.width = "100%";
+  buttonContent.style.minWidth = "0";
   buttonContent.style.gap = "4px";
   
   // 音訊圖示
   const audioIcon = document.createElement("span");
   audioIcon.textContent = iconEmoji;
+  audioIcon.style.flexShrink = "0";
   buttonContent.appendChild(audioIcon);
   
   // 分頁圖示
@@ -305,6 +307,7 @@ async function updateDropdownButtonDisplay(tab) {
   titleSpan.style.textOverflow = "ellipsis";
   titleSpan.style.whiteSpace = "nowrap";
   titleSpan.style.flex = "1";
+  titleSpan.style.minWidth = "0";
   titleSpan.textContent = tab.title || "";
   buttonContent.appendChild(titleSpan);
   
@@ -348,6 +351,7 @@ async function renderDropdownList() {
     // 音訊圖示
     const audioIcon = document.createElement("span");
     audioIcon.textContent = iconEmoji;
+    audioIcon.style.flexShrink = "0";
     li.appendChild(audioIcon);
     
     // 分頁圖示
@@ -366,6 +370,7 @@ async function renderDropdownList() {
     titleSpan.style.textOverflow = "ellipsis";
     titleSpan.style.whiteSpace = "nowrap";
     titleSpan.style.flex = "1";
+    titleSpan.style.minWidth = "0";
     titleSpan.textContent = tab.title || "";
     li.appendChild(titleSpan);
     
@@ -402,6 +407,9 @@ async function updateSelectedTabInfo(tab) {
   wrap.style.alignItems = "center";
   wrap.style.gap = "8px";
   wrap.style.marginTop = "8px";
+  wrap.style.minWidth = "0";
+  wrap.style.overflow = "hidden";
+  wrap.style.whiteSpace = "nowrap";
 
   const labelSpan = document.createElement("span");
   labelSpan.textContent = "狀態：";
@@ -422,6 +430,8 @@ async function updateSelectedTabInfo(tab) {
   const titleSpan = document.createElement("span");
   titleSpan.style.overflow = "hidden";
   titleSpan.style.textOverflow = "ellipsis";
+  titleSpan.style.whiteSpace = "nowrap";
+  titleSpan.style.minWidth = "0";
   titleSpan.textContent = displayTitle;
   wrap.appendChild(titleSpan);
 
