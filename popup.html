@@ -224,6 +224,65 @@
       width: calc((100% - var(--spacing-sm)) / 2);
     }
 
+    .selected-audio-control {
+      flex: 1;
+      min-width: 0;
+      width: calc((100% - var(--spacing-sm)) / 2);
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-sm);
+      background-color: #e3f2fd;
+      color: #1976d2;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: var(--spacing-sm);
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .selected-audio-control.muted {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .selected-audio-control.unmuted {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .selected-audio-control.disabled {
+      opacity: 0.65;
+    }
+
+    .selected-audio-copy {
+      display: inline-flex;
+      align-items: center;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .selected-audio-copy span:last-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .selected-audio-status {
+      font-size: var(--font-sm);
+      white-space: nowrap;
+      cursor: default;
+    }
+
+    .selected-audio-switch {
+      flex-shrink: 0;
+    }
+
+    .selected-audio-switch input:checked + .slider {
+      background-color: var(--button-neutral);
+    }
+
     /* 圖示樣式 */
     .button-icon {
       margin-right: var(--spacing-sm);
@@ -294,6 +353,15 @@
       overflow: hidden;
       text-overflow: ellipsis;
       cursor: default;
+    }
+
+    #dropdownList li:hover {
+      background-color: #f5fbff;
+    }
+
+    #dropdownList li.selected {
+      background-color: #e3f2fd;
+      color: #1976d2;
     }
 
     #dropdownList img {
@@ -502,10 +570,17 @@
     
 
   <div class="button-row">
-    <button id="toggleSelected" class="btn neutral">
-      <span class="button-icon">🎵</span>
-      <span>選擇靜音</span>
-    </button>
+    <div id="selectedAudioControl" class="selected-audio-control disabled">
+      <div class="selected-audio-copy">
+        <span id="selectedAudioIcon" class="button-icon">🔊</span>
+        <span id="selectedAudioLabel">分頁播放</span>
+      </div>
+      <label class="switch selected-audio-switch" title="分頁播放/靜音">
+        <input type="checkbox" id="selectedAudioSwitch" disabled>
+        <span class="slider"></span>
+      </label>
+      <span id="selectedAudioStatus" class="selected-audio-status">播放</span>
+    </div>
     <button id="toggleCurrent" class="btn neutral">
       <span class="button-icon">▶️</span>
       <span>當前靜音</span>

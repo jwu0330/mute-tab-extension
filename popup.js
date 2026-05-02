@@ -7,8 +7,12 @@ let selectedTabId = null;
 
 // DOM 元素
 let globalMuteToggle;
-let toggleSelectedBtn;
 let toggleCurrentBtn;
+let selectedAudioControl;
+let selectedAudioSwitch;
+let selectedAudioIcon;
+let selectedAudioLabel;
+let selectedAudioStatus;
 let dropdownButton;
 let dropdownList;
 let selectedTabInfo;
@@ -47,7 +51,7 @@ function applyStoredState(storage) {
 
 function setupEventListeners() {
   globalMuteToggle.addEventListener("change", handleGlobalMuteChange);
-  toggleSelectedBtn.addEventListener("click", handleSelectedTabMute);
+  selectedAudioSwitch.addEventListener("change", handleSelectedTabAudioSwitch);
   toggleCurrentBtn.addEventListener("click", handleCurrentTabMute);
   dropdownButton.addEventListener("click", () => {
     const isHidden = dropdownList.classList.toggle("hidden");
@@ -112,7 +116,8 @@ async function handleCurrentTabMute() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || typeof tab.id !== "number") return;
   
-  const newMuted = !tab.mutedInfo?.muted;
+  const currentMuted = await checkTabMuteState(tab.id);
+  const newMuted = !currentMuted;
   if (isAllMuted && !newMuted) {
     showRestoreDialog();
     return;
@@ -143,14 +148,28 @@ async function handleCurrentTabMute() {
   }
 }
 
-async function handleSelectedTabMute() {
-  if (!selectedTabId) return;
+async function handleSelectedTabAudioSwitch() {
+  if (!selectedTabId) {
+    updateSelectedAudioControl(false, false);
+    return;
+  }
   
   const tab = await getTabOrClearSelection(selectedTabId);
-  if (!tab) return;
+  if (!tab) {
+    updateSelectedAudioControl(false, false);
+    return;
+  }
 
-  const newMuted = !tab.mutedInfo?.muted;
+  const shouldPlay = selectedAudioSwitch.checked;
+  const currentMuted = await checkTabMuteState(selectedTabId);
+  if (shouldPlay === !currentMuted) {
+    await updateSelectedAudioControl(currentMuted, true);
+    return;
+  }
+
+  const newMuted = !shouldPlay;
   if (isAllMuted && !newMuted) {
+    await updateSelectedAudioControl(true, true);
     showRestoreDialog();
     return;
   }
@@ -213,6 +232,8 @@ async function updateUIStates() {
 }
 
 async function updateButtonStates() {
+  globalMuteToggle.checked = isAllMuted;
+
   const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!currentTab) return;
 
@@ -220,19 +241,21 @@ async function updateButtonStates() {
   const currentTabMuteState = await checkTabMuteState(currentTab.id);
 
   // 更新當前分頁按鈕狀態
-  updateButtonState(toggleCurrentBtn, currentTabMuteState, "當前");
+  updateCurrentButtonState(toggleCurrentBtn, currentTabMuteState);
   
   // 如果有選中的分頁，更新其狀態
   if (selectedTabId) {
-    const selectedTabMuteState = await checkTabMuteState(selectedTabId);
-    updateButtonState(toggleSelectedBtn, selectedTabMuteState, "選擇");
-    
-    // 更新下拉按鈕顯示
     const selectedTab = await getTabOrClearSelection(selectedTabId);
     if (selectedTab) {
+      const selectedTabMuteState = await checkTabMuteState(selectedTabId);
+      updateSelectedAudioControl(selectedTabMuteState, true);
       await updateDropdownButtonDisplay(selectedTab);
       await updateSelectedTabInfo(selectedTab);
+    } else {
+      updateSelectedAudioControl(false, false);
     }
+  } else {
+    updateSelectedAudioControl(false, false);
   }
 }
 
@@ -251,20 +274,28 @@ async function getTabOrClearSelection(tabId) {
   }
 }
 
-// 修改更新按鈕狀態的輔助函數
-function updateButtonState(button, isMuted, prefix) {
-  const buttonText = prefix === "當前" 
-    ? (isMuted ? "當前分頁靜音" : "當前分頁")
-    : "分頁音訊開關";
-    
+function updateCurrentButtonState(button, isMuted) {
+  const buttonText = isMuted ? "當前分頁靜音" : "當前分頁";
   const buttonSpan = button.querySelector('span:not(.button-icon)');
   buttonSpan.textContent = buttonText;
   
   button.classList.remove("muted", "unmuted", "neutral");
-  button.classList.add(prefix === "當前" ? (isMuted ? "muted" : "unmuted") : "neutral");
+  button.classList.add(isMuted ? "muted" : "unmuted");
   
   const iconSpan = button.querySelector('.button-icon');
-  iconSpan.textContent = isMuted ? "🔇" : (prefix === "當前" ? "▶️" : "🎵");
+  iconSpan.textContent = isMuted ? "🔇" : "▶️";
+}
+
+function updateSelectedAudioControl(isMuted, hasSelection) {
+  selectedAudioSwitch.disabled = !hasSelection;
+  selectedAudioSwitch.checked = hasSelection ? !isMuted : true;
+  selectedAudioIcon.textContent = isMuted ? "🔇" : "🔊";
+  selectedAudioLabel.textContent = isMuted ? "分頁靜音" : "分頁播放";
+  selectedAudioStatus.textContent = isMuted ? "靜音" : "播放";
+
+  selectedAudioControl.classList.toggle("disabled", !hasSelection);
+  selectedAudioControl.classList.toggle("muted", hasSelection && isMuted);
+  selectedAudioControl.classList.toggle("unmuted", hasSelection && !isMuted);
 }
 
 // 新增：更新下拉按鈕顯示的輔助函數
@@ -319,11 +350,10 @@ async function updateDropdownButtonDisplay(tab) {
 // 點擊列表項目時的處理
 async function handleListItemClick(tab) {
   selectedTabId = tab.id;
-  dropdownList.classList.add("hidden");
-  dropdownButton.parentElement.classList.remove("open");
   await updateDropdownButtonDisplay(tab);
   await updateSelectedTabInfo(tab);
   await updateButtonStates();
+  await renderDropdownList();
 }
 
 // 更新渲染下拉列表
@@ -335,6 +365,7 @@ async function renderDropdownList() {
     const li = document.createElement("li");
     const isMuted = await checkTabMuteState(tab.id);
     const iconEmoji = isMuted ? "🔇" : "🔊";
+    li.classList.toggle("selected", tab.id === selectedTabId);
     
     li.style.display = "flex";
     li.style.alignItems = "center";
@@ -470,8 +501,12 @@ async function syncStateToStorage({
 document.addEventListener("DOMContentLoaded", async () => {
   // 獲取 DOM 元素
   globalMuteToggle = document.getElementById("globalMuteToggle");
-  toggleSelectedBtn = document.getElementById("toggleSelected");
   toggleCurrentBtn = document.getElementById("toggleCurrent");
+  selectedAudioControl = document.getElementById("selectedAudioControl");
+  selectedAudioSwitch = document.getElementById("selectedAudioSwitch");
+  selectedAudioIcon = document.getElementById("selectedAudioIcon");
+  selectedAudioLabel = document.getElementById("selectedAudioLabel");
+  selectedAudioStatus = document.getElementById("selectedAudioStatus");
   dropdownButton = document.getElementById("dropdownButton");
   dropdownList = document.getElementById("dropdownList");
   selectedTabInfo = document.getElementById("selectedTabInfo");
