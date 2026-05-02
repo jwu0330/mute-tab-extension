@@ -104,7 +104,7 @@
     #dropdownList {
       width: 100%;
       max-height: 240px;
-      overflow-y: auto;
+      overflow-y: scroll;
       scrollbar-gutter: stable;
       padding-bottom: var(--spacing-sm);
       background: var(--background-white);
@@ -229,58 +229,70 @@
       min-width: 0;
       width: calc((100% - var(--spacing-sm)) / 2);
       padding: var(--spacing-sm) var(--spacing-md);
+      border: none;
       border-radius: var(--border-radius-md);
       box-shadow: var(--shadow-sm);
       background-color: #e3f2fd;
       color: #1976d2;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
+      cursor: pointer;
+      display: flex;
       align-items: center;
+      justify-content: center;
       gap: var(--spacing-sm);
       box-sizing: border-box;
       overflow: hidden;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      font-size: var(--font-md);
     }
 
-    .selected-audio-control.muted {
-      background-color: #e3f2fd;
-      color: #1976d2;
+    .selected-audio-control:hover {
+      background-color: #bbdefb;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
     }
 
+    .selected-audio-control:active {
+      transform: translateY(2px);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+      filter: brightness(0.95);
+    }
+
+    .selected-audio-control.muted,
     .selected-audio-control.unmuted {
       background-color: #e3f2fd;
       color: #1976d2;
     }
 
-    .selected-audio-control.disabled {
-      opacity: 0.65;
+    .selected-audio-control.muted:hover,
+    .selected-audio-control.unmuted:hover {
+      background-color: #bbdefb;
     }
 
-    .selected-audio-copy {
+    .selected-audio-control.disabled {
+      opacity: 0.65;
+      cursor: default;
+    }
+
+    .selected-audio-control.disabled:hover {
+      background-color: #e3f2fd;
+      transform: none;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .selected-audio-control.disabled:active {
+      transform: none;
+      box-shadow: var(--shadow-sm);
+      filter: none;
+    }
+
+    .selected-audio-label {
       display: inline-flex;
       align-items: center;
       min-width: 0;
       overflow: hidden;
-    }
-
-    .selected-audio-copy span:last-child {
-      min-width: 0;
-      overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .selected-audio-status {
-      font-size: var(--font-sm);
-      white-space: nowrap;
-      cursor: default;
-    }
-
-    .selected-audio-switch {
-      flex-shrink: 0;
-    }
-
-    .selected-audio-switch input:checked + .slider {
-      background-color: var(--button-neutral);
     }
 
     /* 圖示樣式 */
@@ -317,6 +329,52 @@
       white-space: nowrap;
     }
 
+    #dropdownButton .dropdown-button-content {
+      display: grid;
+      grid-template-columns: auto auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: var(--spacing-xs);
+      width: 100%;
+      min-width: 0;
+    }
+
+    #dropdownButton .dropdown-audio-slot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      min-width: 18px;
+    }
+
+    #dropdownButton .dropdown-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    #dropdownButton .dropdown-favicon-slot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      overflow: hidden;
+    }
+
+    #dropdownButton .dropdown-favicon-slot img {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+    }
+
+    #dropdownButton .dropdown-arrow {
+      justify-self: end;
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
     #dropdownButton:hover {
       box-shadow: var(--shadow-md);
       border-color: var(--primary-color);
@@ -332,6 +390,25 @@
     .controls-row.open #dropdownList {
       border-color: var(--primary-color);
       margin-top: -1px;
+    }
+
+    #dropdownList::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    #dropdownList::-webkit-scrollbar-track {
+      background-color: #f8f9fa;
+      border-left: 1px solid var(--border-color);
+    }
+
+    #dropdownList::-webkit-scrollbar-thumb {
+      background-color: #cfd8dc;
+      border: 3px solid #f8f9fa;
+      border-radius: 999px;
+    }
+
+    #dropdownList::-webkit-scrollbar-thumb:hover {
+      background-color: #b0bec5;
     }
 
     #dropdownList li {
@@ -570,17 +647,10 @@
     
 
   <div class="button-row">
-    <div id="selectedAudioControl" class="selected-audio-control disabled">
-      <div class="selected-audio-copy">
-        <span id="selectedAudioIcon" class="button-icon">🔊</span>
-        <span id="selectedAudioLabel">分頁播放</span>
-      </div>
-      <label class="switch selected-audio-switch" title="分頁播放/靜音">
-        <input type="checkbox" id="selectedAudioSwitch" disabled>
-        <span class="slider"></span>
-      </label>
-      <span id="selectedAudioStatus" class="selected-audio-status">播放</span>
-    </div>
+    <button id="selectedAudioSwitch" class="selected-audio-control disabled" type="button" role="switch" aria-checked="false" disabled>
+      <span id="selectedAudioIcon" class="button-icon">🔊</span>
+      <span id="selectedAudioLabel" class="selected-audio-label">分頁播放</span>
+    </button>
     <button id="toggleCurrent" class="btn neutral">
       <span class="button-icon">▶️</span>
       <span>當前靜音</span>
@@ -588,7 +658,14 @@
   </div>
 
   <div class="controls-row">
-      <button id="dropdownButton">選擇分頁 ▾</button>
+      <button id="dropdownButton">
+        <span class="dropdown-button-content">
+          <span class="dropdown-audio-slot"></span>
+          <span class="dropdown-favicon-slot"></span>
+          <span class="dropdown-title">選擇分頁</span>
+          <span class="dropdown-arrow">▾</span>
+        </span>
+      </button>
       <ul id="dropdownList" class="hidden"></ul>
   </div>
 

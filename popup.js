@@ -8,11 +8,9 @@ let selectedTabId = null;
 // DOM 元素
 let globalMuteToggle;
 let toggleCurrentBtn;
-let selectedAudioControl;
 let selectedAudioSwitch;
 let selectedAudioIcon;
 let selectedAudioLabel;
-let selectedAudioStatus;
 let dropdownButton;
 let dropdownList;
 let selectedTabInfo;
@@ -51,7 +49,7 @@ function applyStoredState(storage) {
 
 function setupEventListeners() {
   globalMuteToggle.addEventListener("change", handleGlobalMuteChange);
-  selectedAudioSwitch.addEventListener("change", handleSelectedTabAudioSwitch);
+  selectedAudioSwitch.addEventListener("click", handleSelectedTabAudioSwitch);
   toggleCurrentBtn.addEventListener("click", handleCurrentTabMute);
   dropdownButton.addEventListener("click", () => {
     const isHidden = dropdownList.classList.toggle("hidden");
@@ -162,14 +160,8 @@ async function handleSelectedTabAudioSwitch() {
     return;
   }
 
-  const shouldPlay = selectedAudioSwitch.checked;
   const currentMuted = await checkTabMuteState(selectedTabId);
-  if (shouldPlay === !currentMuted) {
-    await updateSelectedAudioControl(currentMuted, true);
-    return;
-  }
-
-  const newMuted = !shouldPlay;
+  const newMuted = !currentMuted;
   if (isAllMuted && !newMuted) {
     await updateSelectedAudioControl(true, true);
     showRestoreDialog();
@@ -274,7 +266,7 @@ async function getTabOrClearSelection(tabId) {
     if (selectedTabId === tabId) {
       selectedTabId = null;
       selectedTabInfo.replaceChildren();
-      dropdownButton.textContent = "選擇分頁 ▾";
+      resetDropdownButtonDisplay();
       dropdownButton.parentElement.classList.remove("open");
     }
     console.warn("Selected tab is no longer available:", error);
@@ -296,14 +288,14 @@ function updateCurrentButtonState(button, isMuted) {
 
 function updateSelectedAudioControl(isMuted, hasSelection) {
   selectedAudioSwitch.disabled = !hasSelection;
-  selectedAudioSwitch.checked = hasSelection ? !isMuted : true;
+  selectedAudioSwitch.setAttribute("aria-checked", String(hasSelection && !isMuted));
+  selectedAudioSwitch.title = hasSelection ? "分頁播放/靜音" : "請先選擇分頁";
   selectedAudioIcon.textContent = isMuted ? "🔇" : "🔊";
   selectedAudioLabel.textContent = isMuted ? "分頁靜音" : "分頁播放";
-  selectedAudioStatus.textContent = isMuted ? "靜音" : "播放";
 
-  selectedAudioControl.classList.toggle("disabled", !hasSelection);
-  selectedAudioControl.classList.toggle("muted", hasSelection && isMuted);
-  selectedAudioControl.classList.toggle("unmuted", hasSelection && !isMuted);
+  selectedAudioSwitch.classList.toggle("disabled", !hasSelection);
+  selectedAudioSwitch.classList.toggle("muted", hasSelection && isMuted);
+  selectedAudioSwitch.classList.toggle("unmuted", hasSelection && !isMuted);
 }
 
 // 新增：更新下拉按鈕顯示的輔助函數
@@ -312,46 +304,64 @@ async function updateDropdownButtonDisplay(tab) {
   const iconEmoji = isMuted ? "🔇" : "🔊";
   
   const buttonContent = document.createElement("div");
-  buttonContent.style.display = "flex";
-  buttonContent.style.alignItems = "center";
-  buttonContent.style.width = "100%";
-  buttonContent.style.minWidth = "0";
-  buttonContent.style.gap = "4px";
+  buttonContent.className = "dropdown-button-content";
   
   // 音訊圖示
   const audioIcon = document.createElement("span");
+  audioIcon.className = "dropdown-audio-slot";
   audioIcon.textContent = iconEmoji;
-  audioIcon.style.flexShrink = "0";
   buttonContent.appendChild(audioIcon);
   
   // 分頁圖示
+  const faviconSlot = document.createElement("span");
+  faviconSlot.className = "dropdown-favicon-slot";
   if (tab.favIconUrl && /^(https?:|data:image\/)/i.test(tab.favIconUrl)) {
     const img = document.createElement("img");
     img.src = tab.favIconUrl;
-    img.style.width = "16px";
-    img.style.height = "16px";
-    img.style.flexShrink = "0";
-    buttonContent.appendChild(img);
+    faviconSlot.appendChild(img);
   }
+  buttonContent.appendChild(faviconSlot);
 
   // 分頁標題
   const titleSpan = document.createElement("span");
-  titleSpan.style.overflow = "hidden";
-  titleSpan.style.textOverflow = "ellipsis";
-  titleSpan.style.whiteSpace = "nowrap";
-  titleSpan.style.flex = "1";
-  titleSpan.style.minWidth = "0";
+  titleSpan.className = "dropdown-title";
   titleSpan.textContent = tab.title || "";
   buttonContent.appendChild(titleSpan);
   
   // 下拉箭頭
   const arrow = document.createElement("span");
+  arrow.className = "dropdown-arrow";
   arrow.textContent = "▾";
-  arrow.style.marginLeft = "4px";
-  arrow.style.flexShrink = "0";
   buttonContent.appendChild(arrow);
   
   dropdownButton.innerHTML = '';
+  dropdownButton.appendChild(buttonContent);
+}
+
+function resetDropdownButtonDisplay() {
+  dropdownButton.replaceChildren();
+
+  const buttonContent = document.createElement("div");
+  buttonContent.className = "dropdown-button-content";
+
+  const audioSlot = document.createElement("span");
+  audioSlot.className = "dropdown-audio-slot";
+  buttonContent.appendChild(audioSlot);
+
+  const faviconSlot = document.createElement("span");
+  faviconSlot.className = "dropdown-favicon-slot";
+  buttonContent.appendChild(faviconSlot);
+
+  const titleSpan = document.createElement("span");
+  titleSpan.className = "dropdown-title";
+  titleSpan.textContent = "選擇分頁";
+  buttonContent.appendChild(titleSpan);
+
+  const arrow = document.createElement("span");
+  arrow.className = "dropdown-arrow";
+  arrow.textContent = "▾";
+  buttonContent.appendChild(arrow);
+
   dropdownButton.appendChild(buttonContent);
 }
 
@@ -510,11 +520,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 獲取 DOM 元素
   globalMuteToggle = document.getElementById("globalMuteToggle");
   toggleCurrentBtn = document.getElementById("toggleCurrent");
-  selectedAudioControl = document.getElementById("selectedAudioControl");
   selectedAudioSwitch = document.getElementById("selectedAudioSwitch");
   selectedAudioIcon = document.getElementById("selectedAudioIcon");
   selectedAudioLabel = document.getElementById("selectedAudioLabel");
-  selectedAudioStatus = document.getElementById("selectedAudioStatus");
   dropdownButton = document.getElementById("dropdownButton");
   dropdownList = document.getElementById("dropdownList");
   selectedTabInfo = document.getElementById("selectedTabInfo");
@@ -525,4 +533,3 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 初始化狀態
   await initializeState();
 });
-

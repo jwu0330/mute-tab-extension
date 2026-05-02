@@ -18,6 +18,7 @@
 - `2652cb2`，`2026-05-03 02:30:00 +0800`，處理 (b) 區剩餘的分類問題（typeof 防呆、Promise.all 容錯、條件式 renderDropdownList、移除已被 dialog 遮蔽的死碼分支）。
 - `f3eb7c8`，`2026-05-03 01:30:00 +0800`，把選擇分頁的控制改為獨立的音訊開關區塊，並讓控制始終可見。
 - `8dd0eba`，`2026-05-03 01:15:00 +0800`，補充還原流程的分類紀錄。
+- 本輪提交，精簡選取分頁音訊控制、固定下拉捲軸空間與箭頭欄位。
 - `15384d0`，`2026-05-03 01:00:35 +0800`，移除頂部還原按鈕並修正還原後 selected status 不一致。
 - `22dcb99`，`2026-05-03 00:47:43 +0800`，固定 popup 寬度與長文字截斷。
 - `47ab98b`，`2026-05-03 00:44:43 +0800`，補充第二輪覆核紀錄。
@@ -37,6 +38,7 @@
 | `15384d0` 把 `popup.js` 的 `handleStorageChanged` 從「下拉收起時不重畫清單」改為無條件呼叫 `updateUIStates()`，造成每次 storage 變更都會重新渲染整個下拉清單。 | `git diff 22dcb99 15384d0 -- popup.js` 顯示原本 `handleStorageChanged` 內含 `if (!dropdownList.classList.contains("hidden")) { await renderDropdownList(); }` 的條件保護，被替換成 `await updateUIStates()`；而當時 `updateUIStates` 內無條件呼叫 `renderDropdownList()`，內部 `dropdownList.innerHTML = ""` 後重建並對每個 tab 跑一次 `chrome.tabs.get`。 | 通常無感（純背景重繪），但分頁多、background 頻繁觸發 `mutedTabIds` 寫入時會看到下拉清單捲動位置被重置，開著 popup 操作清單時感受得到。 | `2652cb2` 把條件保護從 `handleStorageChanged` 內聯位置「上推」到 `updateUIStates()` 內部統一處理，所有呼叫路徑（`handleStorageChanged`、`handleGlobalMuteChange`、`handleRestoreConfirm` 等）都受惠，避免再次重複出現「個別 handler 各自加條件」的退化。 |
 | `background.js` 的 `saveMutedTabIds(set)` 描述為已沒人呼叫但仍留在檔案中。 | 經 `Grep "saveMutedTabIds" -- background.js` 確認，當前檔案中根本不存在此函式，函式名是 `saveState`（行 16-21），且由 `updateStoredState` 行 42 正常使用。原條目在 `7fe20eb` / `15384d0` 之間的某個 refactor 中被改名/吸收後，文件描述沒同步更新。 | 沒感。屬於文件本身過時，不是程式碼問題。 | `2652cb2` 釐清這點：沒有死碼可刪，只是文件 (b) 條目描述過時；本條留紀錄但無對應 code change。 |
 | 選取下拉清單項目後，`handleListItemClick()` 會立刻把 `dropdownList` 加上 `hidden` 並移除 `.open`，而「分頁音訊開關」又只是中性按鈕，沒有用同一套 selected tab 狀態更新播放/靜音顯示。 | 本輪修改前的 `popup.js` 中 `handleListItemClick(tab)` 會執行 `dropdownList.classList.add("hidden")`、`dropdownButton.parentElement.classList.remove("open")`；`updateButtonState(toggleSelectedBtn, selectedTabMuteState, "選擇")` 永遠把選取分頁按鈕文字寫成「分頁音訊開關」且 class 固定 `neutral`。 | 高度有感。使用者選完分頁後表單收起來，無法同時看清單與控制；上方控制與下方「播放中/已靜音」也容易看起來不是同一個狀態來源。 | 本輪提交將選取分頁控制改成 `selectedAudioSwitch`，用 `updateSelectedAudioControl()` 同步「分頁播放/分頁靜音」與「播放/靜音」；選取清單項目不再收合，並以 `.selected` 淺藍色標示目前選到的分頁。 |
+| `f3eb7c8` 把選取分頁音訊控制改成左側區塊時，區塊內又放了一個小型 checkbox switch；同時藍色選取列右側會受是否出現 scrollbar 影響，dropdown 箭頭也仍由動態文字寬度推擠。 | `f3eb7c8:popup.html` 的 `#selectedAudioControl` 內含 `<label class="switch selected-audio-switch"><input type="checkbox" id="selectedAudioSwitch"></label>`，形成「大區塊內再塞一顆小開關」；`#dropdownList` 使用 `overflow-y: auto`，視覺上會因清單是否溢出而有不同右側空間；`f3eb7c8:popup.js` 的 `updateDropdownButtonDisplay()` 以 inline flex + title flex 建立箭頭，重置時又回到 `dropdownButton.textContent = "選擇分頁 ▾"`，沒有固定箭頭欄位。 | 高度有感。使用者會覺得左側控制多了一個不必要的小按鈕；選取列藍色背景右側有時不到底；下拉箭頭會隨分頁標題長短飄移。 | 本輪提交將 `selectedAudioSwitch` 改成整顆 `button role="switch"`，點整顆即可切換播放/靜音並保留 hover/active 動效；`#dropdownList` 改為固定 `overflow-y: scroll` 並補 scrollbar 樣式；下拉按鈕內容改為固定 grid 欄位，包含固定的 favicon slot 與 arrow slot。 |
 
 ## (b) 未修改的部分
 
