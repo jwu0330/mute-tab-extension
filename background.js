@@ -110,12 +110,14 @@ async function syncMuteStateFromPopup(message) {
     }
 
     for (const tabId of message.addTabIds || []) {
+      if (typeof tabId !== "number") continue;
       const sizeBefore = nextState.mutedTabIds.size;
       nextState.mutedTabIds.add(tabId);
       changed = changed || nextState.mutedTabIds.size !== sizeBefore;
     }
 
     for (const tabId of message.removeTabIds || []) {
+      if (typeof tabId !== "number") continue;
       changed = nextState.mutedTabIds.delete(tabId) || changed;
     }
 

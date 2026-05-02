@@ -105,7 +105,7 @@ async function handleGlobalMuteChange() {
     });
     await syncStateToStorage({ addTabIds: tabIds, isAllMuted: true });
     await Promise.all(tabIds.map((tabId) =>
-      chrome.tabs.update(tabId, { muted: true })
+      chrome.tabs.update(tabId, { muted: true }).catch(() => {})
     ));
   }
 
@@ -123,23 +123,25 @@ async function handleCurrentTabMute() {
     return;
   }
   
+  // 進到這裡代表 isAllMuted=false 或 newMuted=true；isAllMuted=true 且解除單頁的情況上面已被
+  // showRestoreDialog 攔下，不需要在此重置全域靜音狀態。
   if (newMuted) {
     individualMutedTabs.add(tab.id);
   } else {
     individualMutedTabs.delete(tab.id);
-    // 如果是全域靜音狀態，需要先關閉
-    if (isAllMuted) {
-      isAllMuted = false;
-      globalMuteToggle.checked = false;
-    }
   }
-  
+
   await syncStateToStorage({
     addTabIds: newMuted ? [tab.id] : [],
     removeTabIds: newMuted ? [] : [tab.id],
     isAllMuted,
   });
-  const updatedTab = await chrome.tabs.update(tab.id, { muted: newMuted });
+  let updatedTab = null;
+  try {
+    updatedTab = await chrome.tabs.update(tab.id, { muted: newMuted });
+  } catch (error) {
+    console.warn("Failed to update current tab mute state:", error);
+  }
   await updateUIStates();
   
   // 如果當前分頁就是選中的分頁，更新下方狀態顯示
@@ -174,23 +176,25 @@ async function handleSelectedTabAudioSwitch() {
     return;
   }
   
+  // 同上：isAllMuted=true 且解除單頁的情況已被 showRestoreDialog 攔下，這裡不必重置全域靜音。
   if (newMuted) {
     individualMutedTabs.add(selectedTabId);
   } else {
     individualMutedTabs.delete(selectedTabId);
-    if (isAllMuted) {
-      isAllMuted = false;
-      globalMuteToggle.checked = false;
-    }
   }
-  
+
   await syncStateToStorage({
     addTabIds: newMuted ? [selectedTabId] : [],
     removeTabIds: newMuted ? [] : [selectedTabId],
     isAllMuted,
   });
-  const updatedTab = await chrome.tabs.update(selectedTabId, { muted: newMuted });
-  
+  let updatedTab = null;
+  try {
+    updatedTab = await chrome.tabs.update(selectedTabId, { muted: newMuted });
+  } catch (error) {
+    console.warn("Failed to update selected tab mute state:", error);
+  }
+
   // 更新顯示
   await updateDropdownButtonDisplay(updatedTab || tab);
   await updateSelectedTabInfo(updatedTab || tab);
@@ -216,10 +220,12 @@ async function handleRestoreConfirm() {
   // 先寫回 storage，避免 background 看到的 mutedTabIds 還是舊資料而把分頁打回靜音
   await syncStateToStorage({ clearAll: true });
 
-  // 並行解除所有分頁靜音
+  // 並行解除所有分頁靜音；逐個容錯，避免任一分頁剛被關閉就讓整批 reject
   const tabs = await chrome.tabs.query({});
   await Promise.all(tabs.map((tab) =>
-    chrome.tabs.update(tab.id, { muted: false })
+    typeof tab.id === "number"
+      ? chrome.tabs.update(tab.id, { muted: false }).catch(() => {})
+      : Promise.resolve()
   ));
 
   await updateUIStates();
@@ -228,7 +234,9 @@ async function handleRestoreConfirm() {
 // UI 更新相關
 async function updateUIStates() {
   await updateButtonStates();
-  await renderDropdownList();
+  if (dropdownList && !dropdownList.classList.contains("hidden")) {
+    await renderDropdownList();
+  }
 }
 
 async function updateButtonStates() {
