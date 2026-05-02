@@ -80,3 +80,33 @@
 - mock Chrome API 驗證：popup message 與 background tab 事件並行寫入時，`mutedTabIds` 不會遺失 id。
 - mock Chrome API 驗證：下拉選取已靜音分頁後，「選擇靜音」按鈕不會停留在舊圖示。
 - mock Chrome API 驗證：切換全域靜音 ON 時，會先同步 `isAllMuted=true`，再查詢目前 tabs。
+
+## 第二輪覆核紀錄（HEAD = `7fe20eb`）
+
+本輪指示是「只動之前做的問題；剛剛做的留待審核」。我重新對 `7fe20eb` 的工作目錄做了一次覆核，確認上一輪 5 個被歸為「之前做的」修正都已落地，並繼續搜尋有沒有別的「之前做的」問題還沒處理。
+
+### 上一輪修正逐項覆核
+
+每一筆都拿 `Grep` / 行號去對應現存程式碼，避免我口頭說有改但其實沒改：
+
+- `handleListItemClick` 的圖示更新：`popup.js:329` 已加 `await updateButtonStates();`。對比 `git show 946e262:popup.js` 與 `git show 84c8ca0:popup.js` 都沒這行，確認是本輪補上。
+- popup 訂閱 storage：`popup.js:63` 註冊 `chrome.storage.onChanged.addListener(handleStorageChanged)`；`popup.js:66-83` 的 listener 依變更鍵分別更新 `individualMutedTabs` / `isAllMuted` / `globalMuteToggle.checked`，並條件性呼叫 `renderDropdownList`。`Grep "storage\.onChanged"` 由 0 變 1，路徑只在 `popup.js`。
+- popup 寫入改走 background queue：`popup.js:455-461` 的 `syncStateToStorage` 改成 `chrome.runtime.sendMessage({ type: "syncMuteState", ... })`；`background.js:88-99` 的 `chrome.runtime.onMessage` 與 `background.js:101-130` 的 `syncMuteStateFromPopup` 透過 `updateStoredState`（`background.js:34-57`，使用 `mutedTabIdsQueue`）序列化所有寫入。`Grep "chrome\.storage\.local\.set" -- popup.js` 也從先前的多筆變成 0 筆，確認 popup 不再直接寫 storage。
+- `chrome.runtime.onStartup`：`background.js:86` 註冊 listener；`background.js:132-151` 的 `reconcileTabsOnStartup` 處理「非全域靜音 → 清空孤兒 ID」與「全域靜音 → 以目前 tabs 重建追蹤並重新 mute」兩條路徑，並用 `tabs.update(...).catch(() => {})` 防止單一分頁更新失敗中斷整批。
+- `handleGlobalMuteChange` ON 的競態窗：`popup.js:95-97` 在切 ON 時先 `await syncStateToStorage({ isAllMuted: true })`，之後才 `chrome.tabs.query`。新分頁在 query 之後才建立的話，`background.js:162-178` 的 `onCreated` 會讀到 `isAllMuted=true` 並把它加進清單；新分頁在 sendMessage 飛行中建立的話，會排在 sync task 之後跑，仍然能看到 true。
+
+### 為什麼這一輪沒有再加新的程式碼修正
+
+我又掃了一遍當前程式碼找其他「之前做的」遺珠，確實有看到幾項，但結論都是不改：
+
+- `popup.js:109` 與 `popup.js:208` 的 `Promise.all(tabIds.map(... chrome.tabs.update ...))` 在任何一個分頁正好被關閉時會 fail-fast，導致 `await updateUIStates()` 被略過。失敗模式雖然從 `946e262` 的 `for ... await` 時代就在（同樣 fail-fast），但「Promise.all 這個寫法」是 `a7528f3` 今天引入的；而且本輪 `popup.js:63-83` 新增的 `chrome.storage.onChanged` listener 在 background 發 `onRemoved` 後會自動把 popup 的 `individualMutedTabs` 與按鈕狀態收斂回正確值，使用者看到的最差情況只是極短暫的 UI 不一致。實際影響在這一輪降到很低，所以不去碰今天剛改過的那兩行。
+- `popup.js:215-220` 的 `updateUIStates` 不論下拉是否展開都呼叫 `renderDropdownList`，會跑 N 次 `chrome.tabs.get`。從 `git show 946e262:popup.js` 比對確實是之前做的，但這是效能議題不是正確性問題，且修正會涉及多個 handler 的呼叫慣例調整，本輪先不動。
+- `background.js:14-16` 的 `saveMutedTabIds`：`Grep saveMutedTabIds -- background.js` 顯示已沒人呼叫，但這是上一輪 `7fe20eb` 把寫入路徑改走 `updateStoredState` / `saveState` 之後留下來的死碼，屬於「剛剛做的」殘留，按規則先不清。
+- `popup.js:138-142` / `popup.js:174-178` 把 `addTabIds` / `removeTabIds` / `isAllMuted` 傳給 background 的 `syncMuteStateFromPopup`，背景端目前沒有對 tabId 是否為 number 做防呆。但 `chrome.runtime.onMessage` 在這個擴充功能中只有 popup 會發訊息（沒有 content script），來源可信，且這個 message channel 是上一輪剛建立的，屬於「剛剛做的」，先不動。
+
+### 本輪驗證
+
+- `node --check background.js`：通過。
+- `node --check popup.js`：通過。
+- `Grep "storage\.onChanged"`、`Grep "runtime\.onStartup"`、`Grep "chrome\.storage\.local\.set" -- popup.js`、`Grep "saveMutedTabIds" -- background.js` 結果與上述描述一致。
+- `git log --oneline` 確認 `7fe20eb` 為 HEAD，工作目錄乾淨。
