@@ -2,7 +2,7 @@
 
 本文件只收錄問題「起源於 `2026-05-03`（時區 `Asia/Taipei`）今天的修改中」的條目。每筆都附 grep / git show / 檔案行號作為證據，不是推測。
 
-當前 HEAD：`2652cb2`。
+當前 HEAD：`39a349b`。
 
 > 「修改」與否的歸類規則：只看問題本身的起源。即使可以拿之前的版本對照，只要這個具體錯誤是被今天的某個 commit 引入或殘留下來的，就放在本文件。
 
@@ -15,6 +15,9 @@
 
 今天涉及的 commit：
 
+- `39a349b`，`2026-05-03 03:30:00 +0800`，清理 dropdown button 的過時 CSS / markup（移除被 grid 取代的 max-width 規則、把預設 wrapper 改為 div、刪掉被覆寫的 padding-bottom）。
+- `0827bca`，`2026-05-03 03:00:00 +0800`，精簡選取分頁音訊控制、固定下拉捲軸空間與箭頭欄位。
+- `df62590`，`2026-05-03 02:35:00 +0800`，把上一輪修正紀錄補進兩份 ISSUES 文件 (a) 區。
 - `2652cb2`，`2026-05-03 02:30:00 +0800`，處理 (b) 區剩餘的分類問題（typeof 防呆、Promise.all 容錯、條件式 renderDropdownList、移除已被 dialog 遮蔽的死碼分支）。
 - `f3eb7c8`，`2026-05-03 01:30:00 +0800`，把選擇分頁的控制改為獨立的音訊開關區塊，並讓控制始終可見。
 - `8dd0eba`，`2026-05-03 01:15:00 +0800`，補充還原流程的分類紀錄。
@@ -39,6 +42,10 @@
 | `background.js` 的 `saveMutedTabIds(set)` 描述為已沒人呼叫但仍留在檔案中。 | 經 `Grep "saveMutedTabIds" -- background.js` 確認，當前檔案中根本不存在此函式，函式名是 `saveState`（行 16-21），且由 `updateStoredState` 行 42 正常使用。原條目在 `7fe20eb` / `15384d0` 之間的某個 refactor 中被改名/吸收後，文件描述沒同步更新。 | 沒感。屬於文件本身過時，不是程式碼問題。 | `2652cb2` 釐清這點：沒有死碼可刪，只是文件 (b) 條目描述過時；本條留紀錄但無對應 code change。 |
 | 選取下拉清單項目後，`handleListItemClick()` 會立刻把 `dropdownList` 加上 `hidden` 並移除 `.open`，而「分頁音訊開關」又只是中性按鈕，沒有用同一套 selected tab 狀態更新播放/靜音顯示。 | 本輪修改前的 `popup.js` 中 `handleListItemClick(tab)` 會執行 `dropdownList.classList.add("hidden")`、`dropdownButton.parentElement.classList.remove("open")`；`updateButtonState(toggleSelectedBtn, selectedTabMuteState, "選擇")` 永遠把選取分頁按鈕文字寫成「分頁音訊開關」且 class 固定 `neutral`。 | 高度有感。使用者選完分頁後表單收起來，無法同時看清單與控制；上方控制與下方「播放中/已靜音」也容易看起來不是同一個狀態來源。 | 本輪提交將選取分頁控制改成 `selectedAudioSwitch`，用 `updateSelectedAudioControl()` 同步「分頁播放/分頁靜音」與「播放/靜音」；選取清單項目不再收合，並以 `.selected` 淺藍色標示目前選到的分頁。 |
 | `f3eb7c8` 把選取分頁音訊控制改成左側區塊時，區塊內又放了一個小型 checkbox switch；同時藍色選取列右側會受是否出現 scrollbar 影響，dropdown 箭頭也仍由動態文字寬度推擠。 | `f3eb7c8:popup.html` 的 `#selectedAudioControl` 內含 `<label class="switch selected-audio-switch"><input type="checkbox" id="selectedAudioSwitch"></label>`，形成「大區塊內再塞一顆小開關」；`#dropdownList` 使用 `overflow-y: auto`，視覺上會因清單是否溢出而有不同右側空間；`f3eb7c8:popup.js` 的 `updateDropdownButtonDisplay()` 以 inline flex + title flex 建立箭頭，重置時又回到 `dropdownButton.textContent = "選擇分頁 ▾"`，沒有固定箭頭欄位。 | 高度有感。使用者會覺得左側控制多了一個不必要的小按鈕；選取列藍色背景右側有時不到底；下拉箭頭會隨分頁標題長短飄移。 | 本輪提交將 `selectedAudioSwitch` 改成整顆 `button role="switch"`，點整顆即可切換播放/靜音並保留 hover/active 動效；`#dropdownList` 改為固定 `overflow-y: scroll` 並補 scrollbar 樣式；下拉按鈕內容改為固定 grid 欄位，包含固定的 favicon slot 與 arrow slot。 |
+| `0827bca` 引入 grid 化 dropdown 後，舊的 `#dropdownButton span:not(.button-icon) { max-width: 230px; ... }` 規則沒清掉，會 match 到新的 `.dropdown-title` / `.dropdown-audio-slot` / `.dropdown-favicon-slot` / `.dropdown-arrow` 並把它們的寬度上限夾在 230px，與新 grid 的 `grid-template-columns: auto auto minmax(0, 1fr) auto` 相互打架。 | `popup.html` 行 624-629（`39a349b` 前）的 selector 與新的 `.dropdown-title`（行 349-354）同時存在；`max-width` 在某些 popup padding 變動時會卡住標題的 1fr 行為。`updateDropdownButtonDisplay()` 動態建立的也是 `.dropdown-title`，會被同一條 selector 命中。 | 中度有感。標題長時雖然會省略，但比預期更早被截斷；箭頭與標題的距離會抖動，使用者可能感受不到「為什麼有時能多顯示一點、有時又不行」。 | `39a349b` 直接刪掉這條過時 selector，把寬度控制完全交給 grid 的 `minmax(0, 1fr)` 與 `.dropdown-title { overflow: hidden; text-overflow: ellipsis; ... }`。避免新舊規則並存造成「修改後仍偶爾跑回舊行為」的循環 debug 風險。 |
+| `0827bca` 的 `popup.html` 把 dropdown 的預設 wrapper 寫成 `<span class="dropdown-button-content">`，但 `popup.js` 動態 render 時建立的是 `<div class="dropdown-button-content">`；CSS rule `display: grid` 在 inline-level span 上會變 inline-grid，與 div 的 grid container 行為不一致。 | `f3eb7c8`/`0827bca` 的 popup.html 行 662 預設 span，`updateDropdownButtonDisplay()`（`popup.js:306`）卻用 `document.createElement("div")`。第一次 popup 開啟（尚未走 render path）與選擇分頁後使用兩種 wrapper。 | 視覺差異不大，但 grid item 的對齊基準在某些瀏覽器版本可能略有不同；屬於潛伏不一致而非顯性 bug。 | `39a349b` 把 popup.html 的預設 wrapper 也改為 `<div class="dropdown-button-content">`，與 dynamic render 一致，避免日後若有人對 grid container 加新規則時兩邊不同步。 |
+| `0827bca` 的 `#dropdownList` 同時宣告 `padding-bottom: var(--spacing-sm);`（行 109）與 `padding: 0;`（行 117），後者覆寫前者，前者形同 dead declaration。 | popup.html 同一個規則塊內兩個 padding 宣告。 | 沒感。屬於程式碼整潔。 | `39a349b` 移除被覆寫的 `padding-bottom`，避免日後讀者誤以為清單有底部間距而依此調整其他元素。 |
+| ISSUES_TODAY.md (b) 區的 3 條歷史條目（`saveMutedTabIds` 描述過時、`syncMuteStateFromPopup` typeof 防呆、`handleStorageChanged` 退化）對應修正都已寫進 (a) 區，但 (b) 條目仍標記「等審核」。 | 對照 (a) 區 `2652cb2` 條目即可確認三條都已處理。依規則「不要覆蓋舊條目」，(b) 條目作為歷史快照保留不刪。 | 沒感。屬於文件層的釐清。 | `39a349b`（本條紀錄）僅在 (a) 區補一條總結，說明 (b) 區的歷史狀態已全數對應到 (a) 的修正，未來新進讀者不會誤以為仍有未處理項目。 |
 
 ## (b) 未修改的部分
 
