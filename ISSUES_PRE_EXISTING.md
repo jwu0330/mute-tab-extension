@@ -2,7 +2,7 @@
 
 本文件只收錄問題「起源於 `2026-05-03` 之前」的條目（時區 `Asia/Taipei`）。每筆都附 grep / git show / 檔案行號作為證據，不是推測。
 
-當前 HEAD：`5336cf7`。
+當前 HEAD：`7ad30d2`。
 
 > 「修改」與否的歸類規則：只看問題本身的起源。即使該問題是在今天才被驗證、或修正動作是在今天完成，只要起源在今天以前就放在本文件。
 
@@ -35,10 +35,11 @@
 | `handleRestoreConfirm` 對 `chrome.tabs.query({})` 回傳的每個 tab 直接呼叫 `chrome.tabs.update(tab.id, ...)`，未過濾 `typeof tab.id === "number"` 也未個別 catch；任一特殊分頁會讓 `Promise.all` fail-fast，後面的 `await updateUIStates()` 被略過。 | 證據同上一條：`background.js:141-145` 的正確寫法可對照。`git show 946e262:popup.js` 的還原流程也沒過濾，起源於今天以前。 | 高度有感。按「確定還原全部」後若任一特殊分頁讓批次 reject，按鈕、下拉、狀態列不會收斂到「全部解除」的視覺，但 storage 已寫入 `clearAll`，前後狀態不一致很困惑。 | `2652cb2` 把 `handleRestoreConfirm` 內的批次改為 `typeof tab.id === "number" ? chrome.tabs.update(tab.id, { muted: false }).catch(() => {}) : Promise.resolve()`，雙重容錯（型別過濾 + per-item catch）。 |
 | `handleCurrentTabMute` 與 `handleSelectedTabAudioSwitch`（即原本的 `handleSelectedTabMute`）的 `await chrome.tabs.update(...)` 沒包 try/catch，分頁在 await 期間被關閉就會丟出未處理錯誤、中斷後續 `updateUIStates()` 與 `updateSelectedTabInfo()`。 | 兩個 handler 內各有一處沒包 try/catch，`git show 946e262:popup.js` 同位置一樣沒 try/catch — 起源於今天以前。 | 中度有感。按下按鈕的瞬間若分頁正好關閉，按鈕視覺、下拉狀態、狀態列會停在舊值，要再開 popup 才會收斂。 | `2652cb2` 在兩個 handler 內把 `chrome.tabs.update(...)` 包進 try/catch，失敗時 `console.warn` 並讓 `updatedTab` 維持 `null`，後續 `updateUIStates()` 與 `updateSelectedTabInfo(updatedTab \|\| tab)` 仍會走，最終由 `getTabOrClearSelection` 把 `selectedTabId` 收斂掉。 |
 | `handleCurrentTabMute` / `handleSelectedTabMute` 在「解除單頁靜音時順帶把全域靜音關閉」的分支只送 `removeTabIds: [tab.id]` 與 `isAllMuted: false`，沒有清掉其他原本被全域靜音納入追蹤的殘留 tabId — 即使 `84c8ca0` 已用 dialog 遮蔽入口，這條分支仍是潛伏陷阱。 | `Grep -n "isAllMuted = false" -- popup.js` 在這兩個 handler 內各有一處 `isAllMuted = false`、`globalMuteToggle.checked = false`；但 `individualMutedTabs` 只 `delete(tab.id)`，沒 clear 其他殘留。`84c8ca0` 之後的 `if (isAllMuted && !newMuted) { showRestoreDialog(); return; }` 已使這條分支不可達，但 dead code 仍在。`git show 946e262:popup.js` 是相同邏輯，起源於今天以前。 | 目前無感。但只要未來改動入口判斷或某個 race 繞過 dialog，這個 bug 會立刻復活。 | `2652cb2` 直接刪掉這條死碼分支（`if (isAllMuted) { isAllMuted = false; globalMuteToggle.checked = false; }`），改善方式不是「補 clear 殘留」而是「移除不可達的路徑」，避免日後再被當成有效流程而引入更多 hack。同時加註解說明「該情況已被 showRestoreDialog 攔下」，避免未來讀者再加回類似分支。 |
+| `renderDropdownList()` 不是原子操作：函式體有多個 await 邊界（`chrome.tabs.query` + 每個 tab 一次 `checkTabMuteState` 內含 `chrome.tabs.get`），兩個並發呼叫會交錯 append 到同一個 `dropdownList`，導致同一 tab 出現兩次、兩條 `.selected` 同時亮藍。 | 起源於 `614f455` 引入自訂下拉時就寫成「query → 清空 → for { await get; append }」的非原子結構；`f3eb7c8` 後 `handleListItemClick` 改成不收起並呼叫 render、`dropdownButton` click 又是 fire-and-forget 觸發 render，加上 `handleStorageChanged` / `updateUIStates` 在 dropdown 開著時也會 render，多路徑同時觸發就會碰撞。reproducer：先開 dropdown（fire-and-forget），未跑完前點某 li（內部 await 串後又跑 render），兩 render 交錯。`Grep "renderDropdownList" -- popup.js` 可在歷史版本看到 for 內 `await checkTabMuteState` 邊界。 | 高度有感。使用者實測截圖顯示同一分頁出現兩次、兩條藍色 highlight 同時亮，會誤以為「同時選了兩個分頁」、信任感受損。 | `7ad30d2` 採取根因解：(1) 把 per-tab 的 `checkTabMuteState`（內含 `chrome.tabs.get`）改用 `chrome.tabs.query` 已回傳的 `tab.mutedInfo` + 同步讀 `individualMutedTabs` / `isAllMuted`，去掉 for 迴圈內所有 await 邊界；(2) 改用 `DocumentFragment` 純同步建好整批 DOM，最後用一次 `replaceChildren(fragment)` 整批 swap，DOM 變更區段 zero await，兩個並發 render 不再可能交錯；(3) 順帶把 `dropdownButton` click handler 內的 fire-and-forget 改 `await renderDropdownList()`，移除最常觸發碰撞的入口。三件事一次到位避免日後又有人改回 await 寫法導致 race 復活。 |
 
 ## (b) 未更改的部分
 
-> **目前無未修改的條目。** 原本列於本區的 5 條（兩處 `Promise.all` fail-fast、`updateUIStates` 無條件 `renderDropdownList`、`handleRestoreConfirm` 缺型別過濾與 per-item catch、兩個單頁 handler 缺 try/catch、單頁解除順帶關全域的 dead branch）已全數於 `2652cb2` 處理完畢，相應修正紀錄已搬到上方 (a) 區。為符合「未修改不應再殘留」的最新使用者規則，本區清空；歷史快照透過 git history（`git show 475dddd:ISSUES_PRE_EXISTING.md`）仍可追溯。
+> **目前無未修改的條目。** 原本列於本區的 5 條（兩處 `Promise.all` fail-fast、`updateUIStates` 無條件 `renderDropdownList`、`handleRestoreConfirm` 缺型別過濾與 per-item catch、兩個單頁 handler 缺 try/catch、單頁解除順帶關全域的 dead branch）已全數於 `2652cb2` 處理完畢；最近一輪追加的「`renderDropdownList` 非原子操作導致清單重複」也已於 `7ad30d2` 處理完畢。所有條目對應的修正紀錄已搬到上方 (a) 區。為符合「未修改不應再殘留」的最新使用者規則，本區清空；歷史快照透過 git history（`git show 475dddd:ISSUES_PRE_EXISTING.md` 看 5 條原貌、`git show 306045f:ISSUES_PRE_EXISTING.md` 看本輪追加的 race 條目）仍可追溯。
 >
 > 表格保留標題列以利日後新問題追加。
 
