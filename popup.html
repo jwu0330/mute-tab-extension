@@ -106,7 +106,6 @@
       max-height: 240px;
       overflow-y: scroll;
       scrollbar-gutter: stable;
-      padding-bottom: var(--spacing-sm);
       background: var(--background-white);
       border: 1px solid var(--border-color);
       border-top: none;
@@ -620,13 +619,6 @@
       height: 16px;
       vertical-align: middle;
     }
-
-    #dropdownButton span:not(.button-icon) {
-      max-width: 230px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
   </style>
 </head>
 <body>
@@ -659,12 +651,12 @@
 
   <div class="controls-row">
       <button id="dropdownButton">
-        <span class="dropdown-button-content">
+        <div class="dropdown-button-content">
           <span class="dropdown-audio-slot"></span>
           <span class="dropdown-favicon-slot"></span>
           <span class="dropdown-title">選擇分頁</span>
           <span class="dropdown-arrow">▾</span>
-        </span>
+        </div>
       </button>
       <ul id="dropdownList" class="hidden"></ul>
   </div>
