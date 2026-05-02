@@ -1,0 +1,23 @@
+# Windows / macOS / Linux 系統垃圾檔
+*:Zone.Identifier
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# 編輯器 / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 備份 / 暫存
+*.bak
+*.tmp
+*.drawio.bkp
+
+# Node / 套件 (若日後加上 build 流程)
+node_modules/
+dist/
+*.log

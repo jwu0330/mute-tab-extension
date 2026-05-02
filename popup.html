@@ -234,12 +234,6 @@
       font-size: var(--font-md);
     }
 
-    /* 下拉選單樣式 - 修正版本 */
-    .dropdown {
-      position: relative;
-      width: 100%;
-    }
-
     #dropdownButton {
       width: 100%;
       padding: var(--spacing-sm) var(--spacing-md);
@@ -304,7 +298,6 @@
       background-color: var(--border-color);
       border-radius: 24px;
       transition: .4s;
-      box-shadow: var(--shadow-inner);
     }
 
     .slider:before {
@@ -445,23 +438,6 @@
       display: none !important;
     }
 
-    /* 分頁狀態顯示樣式 */
-    .tab-info {
-      margin-top: var(--spacing-md);
-      padding: var(--spacing-sm) 0;
-      color: var(--text-primary);
-      font-size: var(--font-sm);
-      background: transparent;
-      border: none;
-      box-shadow: none;
-    }
-
-    .tab-info span {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--spacing-xs);
-    }
-
     .tab-info img {
       width: 16px;
       height: 16px;
@@ -498,11 +474,11 @@
     
 
   <div class="button-row">
-    <button id="toggleSelected"btn class="neutral">
+    <button id="toggleSelected" class="btn neutral">
       <span class="button-icon">🎵</span>
       <span>選擇靜音</span>
     </button>
-    <button id="toggleCurrent"btn class="neutral">
+    <button id="toggleCurrent" class="btn neutral">
       <span class="button-icon">▶️</span>
       <span>當前靜音</span>
     </button>
@@ -515,8 +491,6 @@
 
   <div id="selectedTabInfo" class="tab-info"></div>
 
-  <p id="errorMsg" class="error"></p>
-  
 </div> <!-- /.card -->
 
   <div id="customDialog" class="custom-dialog hidden">

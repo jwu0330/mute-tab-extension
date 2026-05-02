@@ -2,14 +2,8 @@
 
 // 全域狀態變數
 let isAllMuted = false;
-let globalMutedTabs = new Set();
 let individualMutedTabs = new Set();
 let selectedTabId = null;
-
-// UI 狀態變數
-let isRestoreButtonVisible = false;
-let currentTabMuteState = false;
-let selectedTabMuteState = false;
 
 // DOM 元素
 let globalMuteToggle;
@@ -64,14 +58,21 @@ function setupEventListeners() {
 async function handleGlobalMuteChange() {
   isAllMuted = globalMuteToggle.checked;
   const tabs = await chrome.tabs.query({});
-  
-  for (const tab of tabs) {
-    await chrome.tabs.update(tab.id, { muted: isAllMuted });
-    if (isAllMuted) {
+
+  if (isAllMuted) {
+    await Promise.all(tabs.map(async (tab) => {
+      await chrome.tabs.update(tab.id, { muted: true });
       individualMutedTabs.add(tab.id);
-    }
+    }));
+  } else {
+    // 關閉全域靜音時必須清空強制靜音清單，否則 background 會立即把分頁打回靜音
+    individualMutedTabs.clear();
+    await syncStateToStorage();
+    await Promise.all(tabs.map((tab) =>
+      chrome.tabs.update(tab.id, { muted: false })
+    ));
   }
-  
+
   await syncStateToStorage();
   await updateUIStates();
 }
@@ -144,15 +145,16 @@ async function handleRestoreConfirm() {
   isAllMuted = false;
   individualMutedTabs.clear();
   globalMuteToggle.checked = false;
-  
-  // 更新所有分頁的靜音狀態
-  const tabs = await chrome.tabs.query({});
-  for (const tab of tabs) {
-    await chrome.tabs.update(tab.id, { muted: false });
-  }
-  
-  // 同步狀態
+
+  // 先寫回 storage，避免 background 看到的 mutedTabIds 還是舊資料而把分頁打回靜音
   await syncStateToStorage();
+
+  // 並行解除所有分頁靜音
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(tabs.map((tab) =>
+    chrome.tabs.update(tab.id, { muted: false })
+  ));
+
   await updateUIStates();
 }
 
@@ -168,8 +170,8 @@ async function updateButtonStates() {
   if (!currentTab) return;
 
   // 使用統一的狀態檢查函數
-  currentTabMuteState = await checkTabMuteState(currentTab.id);
-  
+  const currentTabMuteState = await checkTabMuteState(currentTab.id);
+
   // 更新當前分頁按鈕狀態
   updateButtonState(toggleCurrentBtn, currentTabMuteState, "當前");
   
@@ -217,7 +219,7 @@ async function updateDropdownButtonDisplay(tab) {
   buttonContent.appendChild(audioIcon);
   
   // 分頁圖示
-  if (tab.favIconUrl) {
+  if (tab.favIconUrl && /^(https?:|data:image\/)/i.test(tab.favIconUrl)) {
     const img = document.createElement("img");
     img.src = tab.favIconUrl;
     img.style.width = "16px";
@@ -225,14 +227,14 @@ async function updateDropdownButtonDisplay(tab) {
     img.style.flexShrink = "0";
     buttonContent.appendChild(img);
   }
-  
+
   // 分頁標題
   const titleSpan = document.createElement("span");
   titleSpan.style.overflow = "hidden";
   titleSpan.style.textOverflow = "ellipsis";
   titleSpan.style.whiteSpace = "nowrap";
   titleSpan.style.flex = "1";
-  titleSpan.textContent = tab.title;
+  titleSpan.textContent = tab.title || "";
   buttonContent.appendChild(titleSpan);
   
   // 下拉箭頭
@@ -275,7 +277,7 @@ async function renderDropdownList() {
     li.appendChild(audioIcon);
     
     // 分頁圖示
-    if (tab.favIconUrl) {
+    if (tab.favIconUrl && /^(https?:|data:image\/)/i.test(tab.favIconUrl)) {
       const img = document.createElement("img");
       img.src = tab.favIconUrl;
       img.style.width = "16px";
@@ -283,14 +285,14 @@ async function renderDropdownList() {
       img.style.flexShrink = "0";
       li.appendChild(img);
     }
-    
+
     // 分頁標題
     const titleSpan = document.createElement("span");
     titleSpan.style.overflow = "hidden";
     titleSpan.style.textOverflow = "ellipsis";
     titleSpan.style.whiteSpace = "nowrap";
     titleSpan.style.flex = "1";
-    titleSpan.textContent = tab.title;
+    titleSpan.textContent = tab.title || "";
     li.appendChild(titleSpan);
     
     li.addEventListener("click", () => handleListItemClick(tab));
@@ -299,43 +301,57 @@ async function renderDropdownList() {
 }
 
 async function updateSelectedTabInfo(tab) {
-  // 檢查分頁的靜音狀態
   const isMuted = await checkTabMuteState(tab.id);
-  
-  // 智慧處理標題截斷
+
   const maxLength = 16;
-  let displayTitle = tab.title;
-  if (tab.title.length > maxLength) {
-    // 先取得基本的截斷位置
+  let displayTitle = tab.title || "";
+  if (displayTitle.length > maxLength) {
     let cutIndex = maxLength;
-    
-    // 向後尋找最近的空白字元（最多往後找 5 個字元）
-    const extendedText = tab.title.slice(maxLength, maxLength + 5);
+    const extendedText = displayTitle.slice(maxLength, maxLength + 5);
     const nextSpaceIndex = extendedText.indexOf(' ');
-    
-    // 向前尋找最近的空白字元
-    const beforeText = tab.title.slice(0, maxLength);
+    const beforeText = displayTitle.slice(0, maxLength);
     const lastSpaceIndex = beforeText.lastIndexOf(' ');
-    
+
     if (nextSpaceIndex !== -1 && nextSpaceIndex < 3) {
-      // 如果後面 3 個字元內有空白，就切到那邊
       cutIndex = maxLength + nextSpaceIndex;
     } else if (lastSpaceIndex !== -1 && lastSpaceIndex > maxLength - 5) {
-      // 如果前面 5 個字元內有空白，就切在那邊
       cutIndex = lastSpaceIndex;
     }
-    
-    displayTitle = tab.title.slice(0, cutIndex) + (tab.title.length > cutIndex ? '...' : '');
+
+    displayTitle = displayTitle.slice(0, cutIndex) + (tab.title.length > cutIndex ? '...' : '');
   }
 
-  selectedTabInfo.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-      <span>狀態：</span>
-      <span>${isMuted ? "已靜音 🔇" : "播放中 🔊"}</span>
-      ${tab.favIconUrl ? `<img src="${tab.favIconUrl}" style="width: 16px; height: 16px;">` : ''}
-      <span style="overflow: hidden; text-overflow: ellipsis;">${displayTitle}</span>
-    </div>
-  `;
+  selectedTabInfo.replaceChildren();
+
+  const wrap = document.createElement("div");
+  wrap.style.display = "flex";
+  wrap.style.alignItems = "center";
+  wrap.style.gap = "8px";
+  wrap.style.marginTop = "8px";
+
+  const labelSpan = document.createElement("span");
+  labelSpan.textContent = "狀態：";
+  wrap.appendChild(labelSpan);
+
+  const stateSpan = document.createElement("span");
+  stateSpan.textContent = isMuted ? "已靜音 🔇" : "播放中 🔊";
+  wrap.appendChild(stateSpan);
+
+  if (tab.favIconUrl && /^(https?:|data:image\/)/i.test(tab.favIconUrl)) {
+    const img = document.createElement("img");
+    img.src = tab.favIconUrl;
+    img.style.width = "16px";
+    img.style.height = "16px";
+    wrap.appendChild(img);
+  }
+
+  const titleSpan = document.createElement("span");
+  titleSpan.style.overflow = "hidden";
+  titleSpan.style.textOverflow = "ellipsis";
+  titleSpan.textContent = displayTitle;
+  wrap.appendChild(titleSpan);
+
+  selectedTabInfo.appendChild(wrap);
 }
 
 // 新增：統一檢查分頁靜音狀態的函數
@@ -362,11 +378,6 @@ async function syncStateToStorage() {
     mutedTabIds: Array.from(individualMutedTabs)
   });
   updateRestoreButton();
-}
-
-// 狀態檢查相關
-function isTabMuted(tabId) {
-  return globalMutedTabs.has(tabId) || individualMutedTabs.has(tabId);
 }
 
 // 初始化
