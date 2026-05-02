@@ -27,9 +27,9 @@
 | 全域靜音開啟後，使用者可以直接關掉開關，繞過「還原全部」的 double check。 | `946e262:popup.js` 的 `handleGlobalMuteChange()` 直接用 `globalMuteToggle.checked` 當新狀態，關閉時會立即對全部 tabs 執行 `chrome.tabs.update(... muted: false)`。`b77fd1b` 雖修了 storage race，但仍保留這條直接關閉路徑。因此這是已存在的設計缺口，不是今天最後一次 UI 修正才造成。`84c8ca0` 改成：若 `isAllMuted` 為 true 且使用者把開關關掉，立即把開關恢復 checked，並顯示還原確認框。 | 高度有感。使用者可能誤觸一下就解除全部靜音，和「需要確認才能全部還原」的安全感不一致。 | 之前做的。`2025-04-25` 的 `946e262` 已有直接關閉邏輯；今天只是修正成需要確認。 |
 | 全域靜音開啟後，使用者也可以透過「當前分頁」或「選擇分頁」按鈕間接關掉全域狀態。 | `946e262:popup.js` 與 `b77fd1b:popup.js` 的 `handleCurrentTabMute()` / `handleSelectedTabMute()` 在解除靜音時，如果 `isAllMuted` 為 true，會直接設成 `false` 並同步到 storage。這等於繞過「還原全部」確認流程。`84c8ca0` 已改成在全域靜音狀態下嘗試解除單頁時，只顯示還原確認框，不直接改 tab 或 storage。 | 有感但較情境式。使用者按單頁控制時，可能不知不覺把全域保護關掉，之後新分頁或其他分頁不再被強制靜音。 | 之前做的。今天以前已存在；今天修正。 |
 
-## 本次新驗證、尚未修正的問題
+## 本次新驗證、已於本輪處理的問題
 
-下表都附上實際 grep / git show / 程式碼路徑作為證據，不是推測。所有檔案行號以工作目錄當前內容（`84c8ca0` 為基底）為準。
+下表都附上實際 grep / git show / 程式碼路徑作為證據，不是推測。所有檔案行號以工作目錄當前內容（`84c8ca0` 為基底）為準。這些問題都歸類為「之前做的」，因此依照本輪規則進行修正。
 
 | 發生什麼問題 | 找證據的方式：明確指出為什麼這樣做不行 | 使用者的感受 | 時間歸類 |
 | --- | --- | --- | --- |
@@ -45,7 +45,7 @@
 
 - `node --check background.js`
 - `node --check popup.js`
-- `manifest.json` JSON parse，版本目前為 `3.3`
+- `manifest.json` JSON parse；當時版本為 `3.3`，本輪已更新為 `3.4`。
 - mock Chrome API 驗證：同時建立多個 tab 時，`mutedTabIds` 不會遺失新增的 id。
 - mock Chrome API 驗證：全域靜音開啟後，關閉全域開關只會打開還原確認框，不會直接解除靜音。
 - mock Chrome API 驗證：全域靜音開啟後，點擊當前分頁解除靜音也只會打開還原確認框，不會繞過確認流程。
@@ -58,3 +58,25 @@
 - `git show 946e262:background.js` 與 `a7528f3:background.js` 比對：今天的 `b77fd1b` 引入 `mutedTabIdsQueue`，但只覆蓋 background 內部，popup 端的 `syncStateToStorage` 仍是 `chrome.storage.local.set` 直接覆寫，可在 background 的 read-modify-write 視窗內覆蓋掉它。
 - `popup.js:60-77` 的當前順序確認 `query → forEach add → sync → update`；`background.js:62-72` 在 `onCreated` 內呼叫 `getState`，可在 popup 還沒 sync 的時段內讀到舊 `isAllMuted`。
 
+## 本輪修改紀錄
+
+本輪只處理上方被歸類為「之前做的」問題；表格中「今天的背景重構後，多個新分頁同時建立時，`mutedTabIds` 有機會互相覆蓋」這項仍維持為「剛剛做的」審核項目，本輪沒有把它當作新問題繼續改動。
+
+本輪實際修改：
+
+- `popup.js`：在 `handleListItemClick()` 選取下拉分頁後補上按鈕狀態更新，讓「選擇靜音」按鈕跟著新選分頁的靜音狀態改變。
+- `popup.js`：新增 `chrome.storage.onChanged` 監聽，popup 開啟期間若 background 更新 `mutedTabIds` 或 `isAllMuted`，popup 的記憶體狀態與 UI 會同步更新。
+- `popup.js` / `background.js`：popup 不再直接整包 `chrome.storage.local.set` 覆寫 `mutedTabIds`，改用 `chrome.runtime.sendMessage({ type: "syncMuteState" })` 交給 background 的序列化狀態通道處理，以避免 popup 與 background 同時寫同一個 key 時互相覆蓋。
+- `background.js`：新增 `chrome.runtime.onStartup` 啟動整理。瀏覽器重啟時，如果不是全域靜音，就清空跨 session 不可靠的舊 tabId；如果是全域靜音，就以目前開啟的 tabId 重建追蹤清單並重新套用靜音。
+- `popup.js`：全域靜音開啟流程改為先把 `isAllMuted` 同步到 background，再查詢目前 tabs 並加入追蹤清單，縮小新分頁在切換瞬間漏套用全域靜音的窗口。
+- `manifest.json`：版本從 `3.3` 升到 `3.4`。
+
+本輪新增驗證：
+
+- `node --check background.js`
+- `node --check popup.js`
+- `manifest.json` JSON parse，版本目前為 `3.4`
+- mock Chrome API 驗證：background startup 會清除非全域靜音狀態下的 stale tabId。
+- mock Chrome API 驗證：popup message 與 background tab 事件並行寫入時，`mutedTabIds` 不會遺失 id。
+- mock Chrome API 驗證：下拉選取已靜音分頁後，「選擇靜音」按鈕不會停留在舊圖示。
+- mock Chrome API 驗證：切換全域靜音 ON 時，會先同步 `isAllMuted=true`，再查詢目前 tabs。

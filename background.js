@@ -11,29 +11,51 @@ async function getState() {
   };
 }
 
-async function saveMutedTabIds(set) {
-  await chrome.storage.local.set({ mutedTabIds: Array.from(set) });
-}
-
 let mutedTabIdsQueue = Promise.resolve();
 
-function updateMutedTabIds(mutator) {
+async function saveState(state) {
+  await chrome.storage.local.set({
+    isAllMuted: state.isAllMuted,
+    mutedTabIds: Array.from(state.mutedTabIds),
+  });
+}
+
+function serializeState(state) {
+  return {
+    isAllMuted: state.isAllMuted,
+    mutedTabIds: Array.from(state.mutedTabIds),
+  };
+}
+
+function updateStoredState(mutator) {
   const nextTask = mutedTabIdsQueue
     .catch(() => {})
     .then(async () => {
-      const state = await getState();
-      const nextMutedTabIds = new Set(state.mutedTabIds);
-      const result = await mutator(nextMutedTabIds, state);
+      const currentState = await getState();
+      const nextState = {
+        mutedTabIds: new Set(currentState.mutedTabIds),
+        isAllMuted: currentState.isAllMuted,
+      };
+      const result = await mutator(nextState, currentState);
 
       if (result?.changed) {
-        await saveMutedTabIds(nextMutedTabIds);
+        await saveState(nextState);
       }
 
-      return result;
+      return {
+        ...result,
+        state: serializeState(nextState),
+      };
     });
 
   mutedTabIdsQueue = nextTask.catch(() => {});
   return nextTask;
+}
+
+function updateMutedTabIds(mutator) {
+  return updateStoredState(async (nextState, currentState) => {
+    return mutator(nextState.mutedTabIds, currentState);
+  });
 }
 
 async function muteTabIfTracked(tabId) {
@@ -56,6 +78,81 @@ chrome.runtime.onInstalled.addListener(async () => {
     await chrome.storage.local.set({ mutedTabIds: [] });
   }
 });
+
+chrome.runtime.onStartup.addListener(reconcileTabsOnStartup);
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type !== "syncMuteState") return;
+
+  syncMuteStateFromPopup(message)
+    .then((state) => sendResponse({ ok: true, state }))
+    .catch((error) => {
+      console.error("Failed to sync mute state:", error);
+      sendResponse({ ok: false, error: error.message });
+    });
+
+  return true;
+});
+
+async function syncMuteStateFromPopup(message) {
+  const result = await updateStoredState((nextState) => {
+    if (message.clearAll) {
+      const changed = nextState.isAllMuted || nextState.mutedTabIds.size > 0;
+      nextState.isAllMuted = false;
+      nextState.mutedTabIds.clear();
+      return { changed };
+    }
+
+    let changed = false;
+    if (typeof message.isAllMuted === "boolean" && nextState.isAllMuted !== message.isAllMuted) {
+      nextState.isAllMuted = message.isAllMuted;
+      changed = true;
+    }
+
+    for (const tabId of message.addTabIds || []) {
+      const sizeBefore = nextState.mutedTabIds.size;
+      nextState.mutedTabIds.add(tabId);
+      changed = changed || nextState.mutedTabIds.size !== sizeBefore;
+    }
+
+    for (const tabId of message.removeTabIds || []) {
+      changed = nextState.mutedTabIds.delete(tabId) || changed;
+    }
+
+    return { changed };
+  });
+
+  return result.state;
+}
+
+async function reconcileTabsOnStartup() {
+  const tabs = await chrome.tabs.query({});
+  const openTabIds = new Set(tabs.map((tab) => tab.id).filter((id) => typeof id === "number"));
+  const result = await updateStoredState((nextState) => {
+    const nextMutedTabIds = nextState.isAllMuted
+      ? new Set(openTabIds)
+      : new Set();
+    const changed = !areSetsEqual(nextState.mutedTabIds, nextMutedTabIds);
+    nextState.mutedTabIds = nextMutedTabIds;
+    return { changed, shouldMuteAllOpenTabs: nextState.isAllMuted };
+  });
+
+  if (result?.shouldMuteAllOpenTabs) {
+    await Promise.all(tabs.map((tab) =>
+      typeof tab.id === "number"
+        ? chrome.tabs.update(tab.id, { muted: true }).catch(() => {})
+        : Promise.resolve()
+    ));
+  }
+}
+
+function areSetsEqual(first, second) {
+  if (first.size !== second.size) return false;
+  for (const value of first) {
+    if (!second.has(value)) return false;
+  }
+  return true;
+}
 
 // 全域靜音開啟時，新分頁也立即靜音
 chrome.tabs.onCreated.addListener(async (tab) => {

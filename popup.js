@@ -31,13 +31,19 @@ async function initializeState() {
 
 async function loadStoredState() {
   const storage = await chrome.storage.local.get(["mutedTabIds", "isAllMuted"]);
+  applyStoredState(storage);
+}
+
+function applyStoredState(storage) {
   if (storage.mutedTabIds) {
     individualMutedTabs = new Set(storage.mutedTabIds);
   }
   if (typeof storage.isAllMuted !== "undefined") {
     isAllMuted = storage.isAllMuted;
   }
-  globalMuteToggle.checked = isAllMuted;
+  if (globalMuteToggle) {
+    globalMuteToggle.checked = isAllMuted;
+  }
 }
 
 function setupEventListeners() {
@@ -54,6 +60,26 @@ function setupEventListeners() {
   restoreButton.addEventListener("click", showRestoreDialog);
   dialogConfirm.addEventListener("click", handleRestoreConfirm);
   dialogCancel.addEventListener("click", hideRestoreDialog);
+  chrome.storage.onChanged.addListener(handleStorageChanged);
+}
+
+async function handleStorageChanged(changes, area) {
+  if (area !== "local") return;
+
+  const nextState = {};
+  if (changes.mutedTabIds) {
+    nextState.mutedTabIds = changes.mutedTabIds.newValue || [];
+  }
+  if (changes.isAllMuted) {
+    nextState.isAllMuted = !!changes.isAllMuted.newValue;
+  }
+
+  applyStoredState(nextState);
+  updateRestoreButton();
+  await updateButtonStates();
+  if (!dropdownList.classList.contains("hidden")) {
+    await renderDropdownList();
+  }
 }
 
 // 靜音控制相關
@@ -66,15 +92,22 @@ async function handleGlobalMuteChange() {
   }
 
   isAllMuted = shouldEnableGlobalMute;
+  if (isAllMuted) {
+    await syncStateToStorage({ isAllMuted: true });
+  }
+
   const tabs = await chrome.tabs.query({});
 
   if (isAllMuted) {
-    tabs.forEach((tab) => {
-      individualMutedTabs.add(tab.id);
+    const tabIds = tabs
+      .map((tab) => tab.id)
+      .filter((tabId) => typeof tabId === "number");
+    tabIds.forEach((tabId) => {
+      individualMutedTabs.add(tabId);
     });
-    await syncStateToStorage();
-    await Promise.all(tabs.map((tab) =>
-      chrome.tabs.update(tab.id, { muted: true })
+    await syncStateToStorage({ addTabIds: tabIds, isAllMuted: true });
+    await Promise.all(tabIds.map((tabId) =>
+      chrome.tabs.update(tabId, { muted: true })
     ));
   }
 
@@ -83,7 +116,7 @@ async function handleGlobalMuteChange() {
 
 async function handleCurrentTabMute() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) return;
+  if (!tab || typeof tab.id !== "number") return;
   
   const newMuted = !tab.mutedInfo?.muted;
   if (isAllMuted && !newMuted) {
@@ -102,7 +135,11 @@ async function handleCurrentTabMute() {
     }
   }
   
-  await syncStateToStorage();
+  await syncStateToStorage({
+    addTabIds: newMuted ? [tab.id] : [],
+    removeTabIds: newMuted ? [] : [tab.id],
+    isAllMuted,
+  });
   const updatedTab = await chrome.tabs.update(tab.id, { muted: newMuted });
   await updateUIStates();
   
@@ -134,7 +171,11 @@ async function handleSelectedTabMute() {
     }
   }
   
-  await syncStateToStorage();
+  await syncStateToStorage({
+    addTabIds: newMuted ? [selectedTabId] : [],
+    removeTabIds: newMuted ? [] : [selectedTabId],
+    isAllMuted,
+  });
   const updatedTab = await chrome.tabs.update(selectedTabId, { muted: newMuted });
   
   // 更新顯示
@@ -160,7 +201,7 @@ async function handleRestoreConfirm() {
   globalMuteToggle.checked = false;
 
   // 先寫回 storage，避免 background 看到的 mutedTabIds 還是舊資料而把分頁打回靜音
-  await syncStateToStorage();
+  await syncStateToStorage({ clearAll: true });
 
   // 並行解除所有分頁靜音
   const tabs = await chrome.tabs.query({});
@@ -285,6 +326,7 @@ async function handleListItemClick(tab) {
   dropdownButton.parentElement.classList.remove("open");
   await updateDropdownButtonDisplay(tab);
   await updateSelectedTabInfo(tab);
+  await updateButtonStates();
 }
 
 // 更新渲染下拉列表
@@ -404,12 +446,27 @@ function updateRestoreButton() {
 }
 
 // 同步狀態到 storage
-async function syncStateToStorage() {
-  await chrome.storage.local.set({
-    isAllMuted,
-    mutedTabIds: Array.from(individualMutedTabs)
+async function syncStateToStorage({
+  addTabIds = [],
+  removeTabIds = [],
+  clearAll = false,
+  isAllMuted: nextIsAllMuted = isAllMuted,
+} = {}) {
+  const response = await chrome.runtime.sendMessage({
+    type: "syncMuteState",
+    addTabIds,
+    removeTabIds,
+    clearAll,
+    isAllMuted: clearAll ? false : nextIsAllMuted,
   });
+
+  if (!response?.ok) {
+    throw new Error(response?.error || "Failed to sync mute state");
+  }
+
+  applyStoredState(response.state);
   updateRestoreButton();
+  return response.state;
 }
 
 // 初始化
