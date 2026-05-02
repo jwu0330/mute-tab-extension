@@ -12,7 +12,6 @@ let toggleCurrentBtn;
 let dropdownButton;
 let dropdownList;
 let selectedTabInfo;
-let restoreButton;
 let customDialog;
 let dialogConfirm;
 let dialogCancel;
@@ -57,7 +56,6 @@ function setupEventListeners() {
       renderDropdownList(); // 重新渲染列表以確保狀態最新
     }
   });
-  restoreButton.addEventListener("click", showRestoreDialog);
   dialogConfirm.addEventListener("click", handleRestoreConfirm);
   dialogCancel.addEventListener("click", hideRestoreDialog);
   chrome.storage.onChanged.addListener(handleStorageChanged);
@@ -75,11 +73,7 @@ async function handleStorageChanged(changes, area) {
   }
 
   applyStoredState(nextState);
-  updateRestoreButton();
-  await updateButtonStates();
-  if (!dropdownList.classList.contains("hidden")) {
-    await renderDropdownList();
-  }
+  await updateUIStates();
 }
 
 // 靜音控制相關
@@ -216,7 +210,6 @@ async function handleRestoreConfirm() {
 async function updateUIStates() {
   await updateButtonStates();
   await renderDropdownList();
-  await updateRestoreButton();
 }
 
 async function updateButtonStates() {
@@ -237,7 +230,8 @@ async function updateButtonStates() {
     // 更新下拉按鈕顯示
     const selectedTab = await getTabOrClearSelection(selectedTabId);
     if (selectedTab) {
-      updateDropdownButtonDisplay(selectedTab);
+      await updateDropdownButtonDisplay(selectedTab);
+      await updateSelectedTabInfo(selectedTab);
     }
   }
 }
@@ -449,12 +443,6 @@ async function checkTabMuteState(tabId) {
   }
 }
 
-// 更新還原按鈕顯示狀態
-function updateRestoreButton() {
-  // 只要 mutedTabIds 中有任何分頁，就顯示還原按鈕
-  restoreButton.classList.toggle('visible', individualMutedTabs.size > 0);
-}
-
 // 同步狀態到 storage
 async function syncStateToStorage({
   addTabIds = [],
@@ -475,7 +463,6 @@ async function syncStateToStorage({
   }
 
   applyStoredState(response.state);
-  updateRestoreButton();
   return response.state;
 }
 
@@ -488,13 +475,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   dropdownButton = document.getElementById("dropdownButton");
   dropdownList = document.getElementById("dropdownList");
   selectedTabInfo = document.getElementById("selectedTabInfo");
-  restoreButton = document.getElementById("restoreButton");
   customDialog = document.getElementById("customDialog");
   dialogConfirm = document.getElementById("dialogConfirm");
   dialogCancel = document.getElementById("dialogCancel");
   
   // 初始化狀態
   await initializeState();
-  await updateRestoreButton(); // 初始化時檢查還原按鈕狀態
 });
 

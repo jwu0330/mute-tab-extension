@@ -140,45 +140,6 @@
       white-space: nowrap;
     }
 
-    /* 還原全部按鈕容器 */
-    .restore-button-container {
-      height: 24px; /* 固定高度以預留空間 */
-      margin-bottom: var(--spacing-xs);
-    }
-
-    #restoreButton {
-      padding: var(--spacing-xs) var(--spacing-sm);
-      font-size: var(--font-sm);
-      height: 24px;
-      background-color: #9e9e9e;
-      color: white;
-      border: none;
-      border-radius: var(--border-radius-sm);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      max-width: 112px;
-      overflow: hidden;
-      white-space: nowrap;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.2s ease, visibility 0s linear 0.2s;
-    }
-
-    #restoreButton.visible {
-      opacity: 1;
-      visibility: visible;
-      transition: opacity 0.2s ease, visibility 0s linear;
-    }
-
-    #restoreButton .button-icon {
-      font-size: var(--font-sm);
-      margin-right: 2px;
-      content: "↺";
-    }
-
     /* 按鈕基礎樣式 - 更精緻的視覺效果 */
     .btn {
       padding: var(--spacing-sm) var(--spacing-md);
@@ -270,8 +231,7 @@
       flex-shrink: 0;
     }
 
-    .btn span:not(.button-icon),
-    #restoreButton span:not(.button-icon) {
+    .btn span:not(.button-icon) {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -530,10 +490,6 @@
     <div class="header-row">
       <h2>分頁靜音控制器</h2>
       <div class="header-controls">
-        <button id="restoreButton" class="restore-button">
-          <span class="button-icon">↺</span>
-          <span>還原全部</span>
-        </button>
         <div class="global-mute-container">
           <label class="switch">
             <input type="checkbox" id="globalMuteToggle">
