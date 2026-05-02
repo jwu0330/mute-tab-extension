@@ -2,7 +2,7 @@
 
 本文件只收錄問題「起源於 `2026-05-03` 之前」的條目（時區 `Asia/Taipei`）。每筆都附 grep / git show / 檔案行號作為證據，不是推測。
 
-當前 HEAD：`22dcb99`。
+當前 HEAD：`15384d0`。
 
 > 「修改」與否的歸類規則：只看問題本身的起源。即使該問題是在今天才被驗證、或修正動作是在今天完成，只要起源在今天以前就放在本文件。
 
@@ -29,6 +29,7 @@
 | popup 的 `syncStateToStorage` 與 background 的 `updateMutedTabIds` 佇列不同步，兩邊對 `mutedTabIds` 並行寫入會丟失更新。 | `b77fd1b:background.js` 的 `updateMutedTabIds` 內含三個 `await` 邊界（`getState` → `mutator` → `saveMutedTabIds`）。`b77fd1b:popup.js` 的 `syncStateToStorage` 直接 `chrome.storage.local.set` 不經過該佇列。`b77fd1b` 只解決了 background 自身多事件的序列化，沒解決跨 popup/background。 | 偶發、難重現。同時操作 popup 與外部 mute 切換時會抖動，最後狀態與事實不一致。 | `7fe20eb` 把 popup 寫入改走 `chrome.runtime.sendMessage({ type: "syncMuteState" })`，由 background 的 `updateStoredState` 用同一個 `mutedTabIdsQueue` 序列化。 |
 | Chrome 重啟（特別是異常關閉後）會讓 `storage.mutedTabIds` 殘留上個 session 的 tabId，新 session 中可能誤把新分頁強制靜音。 | `Grep "runtime\.onStartup"` 在 `7fe20eb` 之前為 0 個結果；`onInstalled` 不會在瀏覽器一般重啟時觸發。MV3 service worker 隨時可能被殺，`tabs.onRemoved` 也不保證在關閉瞬間都被處理。 | 累積／長期使用後才會遇到，但一遇到使用者非常困惑：「新開的分頁怎麼一解除靜音就自動回靜音？」 | `7fe20eb` 加上 `chrome.runtime.onStartup` + `reconcileTabsOnStartup()`：非全域靜音時清空孤兒 ID；全域靜音時以目前開啟的 tabIds 重建追蹤並重新 mute。 |
 | 切換全域靜音 ON 的瞬間到 storage 寫入完成之間，新建立的分頁會跳過全域靜音的初始套用。 | `b77fd1b:popup.js:60-77` 的順序是 `query → forEach add → sync → update`。`isAllMuted=true` 是在 `syncStateToStorage` 才寫進 storage。`background.js` 的 `onCreated` 在 `query` 完成之後、`sync` 完成之前讀到的仍是舊 `isAllMuted=false`，於是該分頁不會被加入追蹤、也不會被 mute。 | 偶發。但只要中招且該分頁在播音訊就是有感的「它不該響卻響了」。 | `7fe20eb` 改為先 `await syncStateToStorage({ isAllMuted: true })`，再 `chrome.tabs.query`，再加入並同步 `addTabIds`，再 `chrome.tabs.update`，把窗口縮到極小且配合 background queue 排序消除實際漏接。 |
+| 全域靜音、全部解除、storage 變更這類「非直接選取分頁」路徑不會同步刷新下方 `selectedTabInfo`，造成上方按鈕/開關與下方狀態列顯示不一致。 | `git show 946e262:popup.js` 與 `git show 84c8ca0:popup.js` 的 `updateUIStates()` 都只呼叫 `updateButtonStates()`、`renderDropdownList()`、`updateRestoreButton()`；`updateButtonStates()` 只更新 `toggleCurrentBtn`、`toggleSelectedBtn` 和 dropdown button，沒有呼叫 `updateSelectedTabInfo()`。因此只要狀態改變不是走 `handleListItemClick()` 或 `handleSelectedTabMute()`，下方狀態列就可能停在舊值。 | 高度有感。使用者會看到「上面顯示已解除，下面仍顯示靜音」或反過來，會覺得邏輯互相打架。 | `15384d0` 讓 `updateButtonStates()` 在有 `selectedTabId` 時同步呼叫 `updateDropdownButtonDisplay()` 與 `updateSelectedTabInfo()`，所有 `updateUIStates()` 路徑都會刷新下方狀態。 |
 
 ## (b) 未更改的部分
 
