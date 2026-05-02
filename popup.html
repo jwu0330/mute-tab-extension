@@ -42,12 +42,21 @@
     }
 
     /* 基礎樣式 */
+    html {
+      background: transparent;
+      border-radius: var(--border-radius-lg);
+      overflow: hidden;
+    }
+
     body {
       font-family: Arial, sans-serif;
       padding: var(--spacing-md);
       min-width: 350px;
       background-color: var(--background-light);
+      border-radius: var(--border-radius-lg);
+      box-sizing: border-box;
       margin: 0;
+      overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
     }
@@ -78,11 +87,8 @@
     }
 
     #dropdownList {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      max-height: 200px;
+      width: 100%;
+      max-height: 240px;
       overflow-y: auto;
       scrollbar-gutter: stable;
       padding-bottom: var(--spacing-sm);
@@ -95,6 +101,7 @@
       margin: 0;
       padding: 0;
       list-style: none;
+      box-sizing: border-box;
     }
 
     /* 當前分頁狀態區域更新 */
@@ -248,11 +255,24 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      box-sizing: border-box;
     }
 
     #dropdownButton:hover {
       box-shadow: var(--shadow-md);
       border-color: var(--primary-color);
+    }
+
+    .controls-row.open #dropdownButton {
+      border-color: var(--primary-color);
+      border-bottom-color: var(--border-color);
+      border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .controls-row.open #dropdownList {
+      border-color: var(--primary-color);
+      margin-top: -1px;
     }
 
     #dropdownList li {
@@ -352,9 +372,8 @@
 
     /* 控制列 */
     .controls-row {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-sm);
+      display: block;
+      width: 100%;
       margin-top: var(--spacing-md);
       position: relative;
     }

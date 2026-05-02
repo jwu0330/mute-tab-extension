@@ -46,6 +46,7 @@ function setupEventListeners() {
   toggleCurrentBtn.addEventListener("click", handleCurrentTabMute);
   dropdownButton.addEventListener("click", () => {
     const isHidden = dropdownList.classList.toggle("hidden");
+    dropdownButton.parentElement.classList.toggle("open", !isHidden);
     if (!isHidden) {
       renderDropdownList(); // 重新渲染列表以確保狀態最新
     }
@@ -57,7 +58,14 @@ function setupEventListeners() {
 
 // 靜音控制相關
 async function handleGlobalMuteChange() {
-  isAllMuted = globalMuteToggle.checked;
+  const shouldEnableGlobalMute = globalMuteToggle.checked;
+  if (!shouldEnableGlobalMute && isAllMuted) {
+    globalMuteToggle.checked = true;
+    showRestoreDialog();
+    return;
+  }
+
+  isAllMuted = shouldEnableGlobalMute;
   const tabs = await chrome.tabs.query({});
 
   if (isAllMuted) {
@@ -67,13 +75,6 @@ async function handleGlobalMuteChange() {
     await syncStateToStorage();
     await Promise.all(tabs.map((tab) =>
       chrome.tabs.update(tab.id, { muted: true })
-    ));
-  } else {
-    // 關閉全域靜音時必須清空強制靜音清單，否則 background 會立即把分頁打回靜音
-    individualMutedTabs.clear();
-    await syncStateToStorage();
-    await Promise.all(tabs.map((tab) =>
-      chrome.tabs.update(tab.id, { muted: false })
     ));
   }
 
@@ -85,6 +86,10 @@ async function handleCurrentTabMute() {
   if (!tab) return;
   
   const newMuted = !tab.mutedInfo?.muted;
+  if (isAllMuted && !newMuted) {
+    showRestoreDialog();
+    return;
+  }
   
   if (newMuted) {
     individualMutedTabs.add(tab.id);
@@ -114,6 +119,10 @@ async function handleSelectedTabMute() {
   if (!tab) return;
 
   const newMuted = !tab.mutedInfo?.muted;
+  if (isAllMuted && !newMuted) {
+    showRestoreDialog();
+    return;
+  }
   
   if (newMuted) {
     individualMutedTabs.add(selectedTabId);
@@ -200,6 +209,7 @@ async function getTabOrClearSelection(tabId) {
       selectedTabId = null;
       selectedTabInfo.replaceChildren();
       dropdownButton.textContent = "選擇分頁 ▾";
+      dropdownButton.parentElement.classList.remove("open");
     }
     console.warn("Selected tab is no longer available:", error);
     return null;
@@ -271,6 +281,8 @@ async function updateDropdownButtonDisplay(tab) {
 // 點擊列表項目時的處理
 async function handleListItemClick(tab) {
   selectedTabId = tab.id;
+  dropdownList.classList.add("hidden");
+  dropdownButton.parentElement.classList.remove("open");
   await updateDropdownButtonDisplay(tab);
   await updateSelectedTabInfo(tab);
 }
